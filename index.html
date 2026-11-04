@@ -156,6 +156,22 @@
         #switch-player-btn:disabled { color: #557755; border-color: #224422; cursor: not-allowed; }
         #switch-hint { font-size: 15px; color: #4a7a4a; text-align: center; min-height: 15px; }
 
+        #mode-buttons { display: flex; gap: 6px; }
+        .mode-btn {
+            flex: 1;
+            font-family: 'VT323', monospace;
+            font-size: 19px;
+            padding: 6px 2px;
+            color: #8fbf8f;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #224422;
+            cursor: pointer;
+        }
+        .mode-btn:hover:not(:disabled) { color: #ffffff; border-color: #44cc66; }
+        .mode-btn.active { color: #ffffff; background: #1a4a1a; border-color: #44ff88; box-shadow: 0 0 8px rgba(68,255,136,0.35); }
+        .mode-btn:disabled { color: #446644; border-color: #1a2a1a; cursor: not-allowed; }
+        .mode-btn.active:disabled { color: #aaccaa; background: #102a10; }
+
         .controls-hint { font-size: 16px; color: #4a7a4a; line-height: 1.25; }
         .controls-hint b { color: #9fdf9f; font-weight: normal; }
 
@@ -236,6 +252,12 @@
             <div class="stat-row">🛡️ Armor <span class="val" id="hud-armor">No Armor</span></div>
             <div class="stat-row">🔦 Light <span class="val" id="hud-torch">None</span></div>
             <div class="panel-spacer"></div>
+            <div class="panel-heading">BATTLE MODE</div>
+            <div id="mode-buttons">
+                <button class="mode-btn" type="button" tabindex="-1" data-mode="TYPING">⌨️ Typing</button>
+                <button class="mode-btn" type="button" tabindex="-1" data-mode="MATH">➗ Math</button>
+                <button class="mode-btn" type="button" tabindex="-1" data-mode="COLOR">🎨 Color</button>
+            </div>
             <button id="switch-player-btn" type="button" tabindex="-1">👥 Switch Player</button>
             <div id="switch-hint"></div>
         </aside>
@@ -1214,7 +1236,8 @@ function renderCombat(player, combat, now) {
     const effDmg=Math.max(1,run.zombieDmg-player.armorLevel);
     const dmgLabel=player.armorLevel>0?`${run.zombieDmg} DMG  (-${player.armorLevel} ARM)`:`${run.zombieDmg} DMG`;
     ctx.font='18px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle='#aaddaa'; ctx.fillText('PLAYER', pAvatX, nameY);
+    ctx.fillStyle='#aaddaa'; fillFit((gameConfig.playerName || 'Player').toUpperCase(), pAvatX, nameY, 190, 18, 12);
+    ctx.font='18px VT323, monospace';
     ctx.fillStyle='#558844'; ctx.fillText(player.weapon.name.toUpperCase(), pAvatX, nameY+19);
     ctx.fillStyle='#cc7744'; ctx.fillText('ZOMBIE', zAvatX, nameY);
     ctx.fillStyle=effDmg<run.zombieDmg?'#557766':'#664433';
@@ -3342,7 +3365,8 @@ function syncTorchHud()      {
 }
 function syncPlayerCardHud() {
     const slot = loadAllSlots()[gameConfig.currentSlot];
-    document.getElementById('hud-name').textContent = slot ? slot.name : 'Adventurer';
+    gameConfig.playerName = slot ? slot.name : 'Adventurer'; // cached for the combat screen
+    document.getElementById('hud-name').textContent = gameConfig.playerName;
     document.getElementById('hud-avatar').src = `Characters/${gameConfig.character}/south.png`;
 }
 // Refreshes every panel value at once (used when a game is loaded/started)
@@ -3350,6 +3374,24 @@ function syncAllHud() {
     syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
     syncWeaponHud(); syncArmorHud(); syncZombiesHud(); syncKeyHud();
     syncChickensHud(); syncRepellentsHud(); syncRabbitFeetHud(); syncTorchHud(); syncPlayerCardHud();
+    syncModeHud();
+}
+function syncModeHud() {
+    for (const b of document.querySelectorAll('.mode-btn'))
+        b.classList.toggle('active', b.dataset.mode === gameConfig.learningMode);
+}
+
+// Changes Typing / Math / Color for the current player; takes effect from the next zombie
+function setLearningMode(modeId) {
+    if (MENU_STATES.has(gameState) || gameState === 'COMBAT' || gameState === 'BATTLEPREP') return;
+    if (!LEARNING_MODES.some(m => m.id === modeId) || modeId === gameConfig.learningMode) return;
+    gameConfig.learningMode = modeId;
+    // Only update the mode in the save — don't snapshot mid-maze progress
+    const arr = loadAllSlots();
+    if (arr[gameConfig.currentSlot]) { arr[gameConfig.currentSlot].learningMode = modeId; saveAllSlots(arr); }
+    syncModeHud();
+    const label = LEARNING_MODES.find(m => m.id === modeId).label.toUpperCase();
+    showPopup(`MODE: ${label}`, 'THE NEXT ZOMBIE WILL USE THIS MODE', '#44ff88');
 }
 function resizeUiToCanvas()  {
     fitToWindow();
@@ -3364,6 +3406,7 @@ function updatePanelsForState() {
     document.body.classList.toggle('in-menu', MENU_STATES.has(gameState));
     const fighting = gameState === 'COMBAT' || gameState === 'BATTLEPREP';
     document.getElementById('switch-player-btn').disabled = fighting;
+    for (const b of document.querySelectorAll('.mode-btn')) b.disabled = fighting;
     document.getElementById('switch-hint').textContent = fighting ? 'Finish the fight first!' : 'Gold & gear are saved';
 }
 
@@ -4109,6 +4152,10 @@ window.addEventListener('resize', fitToWindow);
     // Never let the button take keyboard focus — Space/Enter are game keys
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', () => { btn.blur(); switchPlayer(); });
+    for (const b of document.querySelectorAll('.mode-btn')) {
+        b.addEventListener('mousedown', e => e.preventDefault());
+        b.addEventListener('click', () => { b.blur(); setLearningMode(b.dataset.mode); });
+    }
 }
 
 document.fonts.ready.then(() => {
