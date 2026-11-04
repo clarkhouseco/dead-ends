@@ -36,12 +36,78 @@
             margin-bottom: 4px;
         }
 
+        /* Landscape layout: [left panel] [maze] [right panel] */
+        #main-row {
+            display: flex;
+            align-items: stretch;
+            gap: 14px;
+        }
+
+        .side-panel {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 12px;
+            background: rgba(0,10,0,0.6);
+            border: 1px solid #0f3a0f;
+            box-shadow: 0 0 20px rgba(0,255,65,0.05);
+        }
+        /* On menu screens there's no active player, so hide the stats */
+        body.in-menu .side-panel > * { visibility: hidden; }
+
+        .panel-heading {
+            font-size: 18px;
+            letter-spacing: 3px;
+            color: #3f8f3f;
+            border-bottom: 1px solid #0f3a0f;
+            padding-bottom: 2px;
+            margin-top: 4px;
+        }
+        .panel-heading:first-child { margin-top: 0; }
+
+        #player-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #hud-avatar {
+            width: 56px; height: 56px;
+            image-rendering: pixelated;
+            flex-shrink: 0;
+        }
+        #hud-name {
+            font-size: 30px;
+            color: #ffffff;
+            line-height: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 22px;
+            line-height: 1.15;
+            color: #7fbf7f;
+        }
+        .stat-row .val {
+            color: #ffffff;
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .stat-row .val.gold { color: #ffdd44; }
+
         #hp-bar-outer {
             position: relative;
-            height: 24px;
+            height: 30px;
             background: #0a0a0a;
-            border: 1px solid #003311;
-            margin-bottom: 4px;
+            border: 1px solid #1f5a1f;
             overflow: hidden;
             flex-shrink: 0;
         }
@@ -56,11 +122,42 @@
             top: 0; left: 0; right: 0; bottom: 0;
             display: flex; align-items: center; justify-content: center;
             font-family: 'VT323', monospace;
-            font-size: 16px;
-            color: #ccffcc;
+            font-size: 22px;
+            color: #ffffff;
             letter-spacing: 1px;
+            text-shadow: 0 0 3px #000;
             pointer-events: none;
         }
+
+        #hud-key-cell {
+            margin-top: 2px;
+            padding: 8px;
+            border: 1px solid #5a1f1f;
+            background: rgba(40,0,0,0.5);
+            text-align: center;
+            font-size: 20px;
+            color: #ff8888;
+        }
+        #hud-key-cell.found { border-color: #aa8800; background: rgba(40,30,0,0.5); color: #ffdd44; }
+
+        .panel-spacer { flex: 1; }
+
+        #switch-player-btn {
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            letter-spacing: 1px;
+            padding: 8px;
+            color: #ffffff;
+            background: #102a10;
+            border: 1px solid #44cc66;
+            cursor: pointer;
+        }
+        #switch-player-btn:hover:not(:disabled) { background: #1a4a1a; }
+        #switch-player-btn:disabled { color: #557755; border-color: #224422; cursor: not-allowed; }
+        #switch-hint { font-size: 15px; color: #4a7a4a; text-align: center; min-height: 15px; }
+
+        .controls-hint { font-size: 16px; color: #4a7a4a; line-height: 1.25; }
+        .controls-hint b { color: #9fdf9f; font-weight: normal; }
 
         #canvas-container { position: relative; }
 
@@ -87,40 +184,14 @@
             cursor: crosshair;
         }
 
-        #stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 3px 8px;
-            padding: 5px 2px;
-            margin-top: 4px;
-            font-size: 14px;
-            color: #2a6b2a;
-            letter-spacing: 1px;
-        }
-        .stat-cell {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            background: rgba(0,8,0,0.5);
-            border: 1px solid #0a200a;
-            padding: 2px 7px;
-        }
-        .stat-cell span { color: #00cc33; }
-        .stat-cell.key-cell { grid-column: 1 / -1; justify-content: center; }
-        .stat-cell.key-cell.found { border-color: #aa8800; }
-        .stat-cell.key-cell.found span { color: #ffdd44; }
-
         #loot-popup {
             display: flex;
             visibility: hidden;
-            margin-top: 8px;
-            width: 100%;
-            max-width: 556px;
-            min-height: 56px;
+            min-height: 70px;
             background: rgba(3,10,3,0.97);
             border: 1.5px solid #00ff41;
             box-shadow: 0 0 14px rgba(0,255,65,0.3);
-            padding: 10px 18px;
+            padding: 8px 10px;
             text-align: center;
             cursor: pointer;
             flex-direction: column;
@@ -130,44 +201,68 @@
         }
         #loot-popup.visible { visibility: visible; }
         #loot-popup #loot-title {
-            font-size: 26px;
+            font-size: 24px;
             font-family: 'VT323', monospace;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             text-shadow: 0 0 8px currentColor;
         }
         #loot-popup #loot-sub {
-            font-size: 14px;
-            color: #556655;
+            font-size: 16px;
+            color: #9fbf9f;
             font-family: 'VT323', monospace;
             letter-spacing: 1px;
         }
     </style>
 </head>
-<body>
+<body class="in-menu">
 <div id="game-wrap">
     <div id="game-title">DEAD ENDS</div>
-    <div id="hp-bar-outer">
-        <div id="hp-bar-fill"></div>
-        <div id="hp-bar-text"><span id="hud-hp">30</span>&nbsp;/&nbsp;<span id="hud-maxhp">30</span>&nbsp;HP</div>
-    </div>
-    <div id="canvas-container">
-        <canvas id="gameCanvas"></canvas>
-    </div>
-    <div id="stats-grid">
-        <div class="stat-cell">🪙 Gold: <span id="hud-gold">0</span></div>
-        <div class="stat-cell">⚔️ Weapon: <span id="hud-weapon">Wooden Stick</span></div>
-        <div class="stat-cell">🛡️ Armor: <span id="hud-armor">No Armor</span></div>
-        <div class="stat-cell">⭐ Level: <span id="hud-plevel">1</span></div>
-        <div class="stat-cell">📊 XP: <span id="hud-xp">0</span>/<span id="hud-xp-next">30</span></div>
-        <div class="stat-cell">🧪 Potions: <span id="hud-potions">0</span></div>
-        <div class="stat-cell">🏰 Maze: <span id="hud-level">01</span></div>
-        <div class="stat-cell">⏱️ Time: <span id="hud-timer">0:00</span></div>
-        <div class="stat-cell">🧟 Zombies: <span id="hud-zombies">?</span></div>
-        <div class="stat-cell key-cell" id="hud-key-cell">🗝️ Exit Key: <span id="hud-key">NOT FOUND - a zombie has it!</span></div>
-    </div>
-    <div id="loot-popup">
-        <span id="loot-title"></span>
-        <span id="loot-sub"></span>
+    <div id="main-row">
+        <aside class="side-panel" id="panel-left">
+            <div class="panel-heading">PLAYER</div>
+            <div id="player-card">
+                <img id="hud-avatar" alt="" src="Characters/lizard/south.png">
+                <div id="hud-name">Adventurer</div>
+            </div>
+            <div id="hp-bar-outer">
+                <div id="hp-bar-fill"></div>
+                <div id="hp-bar-text"><span id="hud-hp">30</span>&nbsp;/&nbsp;<span id="hud-maxhp">30</span>&nbsp;HP</div>
+            </div>
+            <div class="stat-row">⭐ Level <span class="val" id="hud-plevel">1</span></div>
+            <div class="stat-row">📊 XP <span class="val"><span id="hud-xp">0</span> / <span id="hud-xp-next">30</span></span></div>
+            <div class="stat-row">🪙 Gold <span class="val gold" id="hud-gold">0</span></div>
+            <div class="panel-heading">GEAR</div>
+            <div class="stat-row">⚔️ Weapon <span class="val" id="hud-weapon">Wooden Stick</span></div>
+            <div class="stat-row">🛡️ Armor <span class="val" id="hud-armor">No Armor</span></div>
+            <div class="stat-row">🔦 Light <span class="val" id="hud-torch">None</span></div>
+            <div class="panel-spacer"></div>
+            <button id="switch-player-btn" type="button" tabindex="-1">👥 Switch Player</button>
+            <div id="switch-hint"></div>
+        </aside>
+        <div id="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        <aside class="side-panel" id="panel-right">
+            <div class="panel-heading">MAZE</div>
+            <div class="stat-row">🏰 Maze <span class="val" id="hud-level">01</span></div>
+            <div class="stat-row">⏱️ Time <span class="val" id="hud-timer">0:00</span></div>
+            <div class="stat-row">🧟 Zombies <span class="val" id="hud-zombies">?</span></div>
+            <div id="hud-key-cell">🗝️ Exit Key:<br><span id="hud-key">NOT FOUND - a zombie has it!</span></div>
+            <div class="panel-heading">BACKPACK</div>
+            <div class="stat-row">🧪 Potions <span class="val" id="hud-potions">0</span></div>
+            <div class="stat-row">🐔 Chickens <span class="val" id="hud-chickens">0</span></div>
+            <div class="stat-row">🧴 Repellent <span class="val" id="hud-repellents">0</span></div>
+            <div class="stat-row">🐇 Rabbit's Feet <span class="val" id="hud-rabbitfeet">0</span></div>
+            <div class="panel-spacer"></div>
+            <div id="loot-popup">
+                <span id="loot-title"></span>
+                <span id="loot-sub"></span>
+            </div>
+            <div class="controls-hint">
+                <b>Arrows / WASD</b> move &nbsp;·&nbsp; <b>F</b> drink potion<br>
+                <b>Esc</b> pause
+            </div>
+        </aside>
     </div>
 </div>
 
@@ -1543,8 +1638,7 @@ function applyOopsReset() {
     shopUi.goldFlashAt = performance.now();
     shopUi.oopsFlashAt = performance.now();
     shopUi.oopsConfirm = false;
-    syncHpHud(); syncGoldHud(); syncPotionsHud(); syncPlayerLevelHud(); syncXpHud();
-    syncWeaponHud(); syncArmorHud();
+    syncAllHud();
     saveGame();
 }
 
@@ -1922,13 +2016,13 @@ function renderSlotSelect(now) {
     ctx.font='42px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=`rgba(0,255,65,${flicker})`; ctx.shadowColor='#00ff41'; ctx.shadowBlur=20*flicker;
     ctx.fillText('DEAD ENDS', cx, 44); ctx.shadowBlur=0;
-    ctx.font='14px VT323, monospace'; ctx.fillStyle='#1a3a1a';
-    ctx.fillText('SELECT SAVE SLOT', cx, 68);
+    ctx.font='18px VT323, monospace'; ctx.fillStyle='#4a8a4a';
+    ctx.fillText('SELECT YOUR PLAYER', cx, 68);
 
-    const cardW=176, cardH=194, cardGap=12;
+    const cardW=186, cardH=300, cardGap=12;
     const totalW=3*cardW+2*cardGap;
     const startX=Math.floor((canvas.width-totalW)/2);
-    const cardY=82;
+    const cardY=84;
 
     for (let i=0; i<3; i++) {
         const slot=slots[i];
@@ -1940,7 +2034,7 @@ function renderSlotSelect(now) {
         const isSelected=setupFlow.selectedSlot===i;
 
         const tc=slot?TIER_CONFIG[slot.playerTier]:null;
-        const borderCol=isSelected?(tc?tc.glow:'#00ff41'):'#1a2a1a';
+        const borderCol=isSelected?(tc?tc.glow:'#00ff41'):'#1f3a1f';
         const borderW=isSelected?2:1;
 
         ctx.fillStyle=isSelected?'rgba(0,20,0,0.96)':'rgba(0,8,0,0.72)';
@@ -1949,53 +2043,74 @@ function renderSlotSelect(now) {
         if(isSelected){ctx.shadowColor=borderCol;ctx.shadowBlur=10;}
         ctx.strokeRect(sx+1,cardY+1,cardW-2,cardH-2); ctx.shadowBlur=0;
 
-        ctx.font='11px VT323, monospace'; ctx.textAlign='left'; ctx.textBaseline='top';
-        ctx.fillStyle='#223322';
-        ctx.fillText(`[${i+1}]`,sx+5,cardY+5);
+        ctx.font='15px VT323, monospace'; ctx.textAlign='left'; ctx.textBaseline='top';
+        ctx.fillStyle='#3a5a3a';
+        ctx.fillText(`[${i+1}]`,sx+6,cardY+6);
         ctx.textAlign='center'; ctx.textBaseline='middle';
         const ccx=sx+cardW/2;
 
         // Store card rect (actual rendered x, accounting for slide animation)
         slotSelectUi.cardRects[i] = {x:sx, y:cardY, w:cardW, h:cardH, idx:i};
 
+        // Big main button at the bottom of the card
+        const btnX=sx+12, btnW=cardW-24, btnY=cardY+232, btnH=32;
+        const pulse=0.7+0.3*Math.sin(now*0.004);
+
         if(slot){
-            ctx.font='14px VT323, monospace'; ctx.fillStyle=tc.color;
-            ctx.shadowColor=tc.glow; ctx.shadowBlur=isSelected?8:0;
-            ctx.fillText(tc.emoji+'  '+tc.name,ccx,cardY+28); ctx.shadowBlur=0;
-            ctx.font='16px VT323, monospace'; ctx.fillStyle='#aaddaa';
-            ctx.fillText(slot.name.toUpperCase(),ccx,cardY+52);
-            ctx.font='12px VT323, monospace'; ctx.fillStyle='#335533';
-            ctx.fillText(tc.grade+'  |  '+(LEARNING_MODES.find(m=>m.id===slot.learningMode)||LEARNING_MODES[0]).label,ccx,cardY+68);
-            ctx.fillStyle='#334a33';
-            ctx.fillText(`MAZE ${slot.mazeLevel}  |  LVL ${slot.playerLevel}`,ccx,cardY+84);
-            ctx.fillText(`GOLD ${slot.gold}G  |  KILLS ${slot.totalZombiesKilled}`,ccx,cardY+99);
-            drawCharacterSprite(CHARACTERS[getCharacterIdx(slot.character)].id, 'south', ccx, cardY+138, 64, 0);
+            ctx.fillStyle='#ffffff';
+            fillFit(slot.name.toUpperCase(),ccx,cardY+36,cardW-50,28,16);
+            drawCharacterSprite(CHARACTERS[getCharacterIdx(slot.character)].id, 'south', ccx, cardY+102, 96, 0);
+            ctx.fillStyle=tc.color;
+            fillFit(tc.name,ccx,cardY+160,cardW-16,18,13);
+            ctx.fillStyle='#8fbf8f';
+            fillFit((LEARNING_MODES.find(m=>m.id===slot.learningMode)||LEARNING_MODES[0]).label+'  ·  '+tc.grade,ccx,cardY+180,cardW-16,16,12);
+            fillFit(`Maze ${slot.mazeLevel}  ·  Level ${slot.playerLevel}`,ccx,cardY+198,cardW-16,17,12);
+            ctx.fillStyle='#ffdd44';
+            fillFit(`${slot.gold} gold  ·  ${slot.totalZombiesKilled} kills`,ccx,cardY+215,cardW-16,17,12);
+
             // Trash button (top-right corner)
-            const trX=sx+cardW-26, trY=cardY+4, trW=22, trH=18;
+            const trX=sx+cardW-30, trY=cardY+5, trW=25, trH=22;
             ctx.fillStyle='rgba(40,8,8,0.85)'; ctx.fillRect(trX,trY,trW,trH);
             ctx.strokeStyle='#662222'; ctx.lineWidth=1; ctx.strokeRect(trX+0.5,trY+0.5,trW-1,trH-1);
-            ctx.font='11px VT323, monospace'; ctx.fillStyle='#cc3333';
+            ctx.font='14px VT323, monospace'; ctx.fillStyle='#cc3333';
             ctx.fillText('[X]',trX+trW/2,trY+trH/2);
             slotSelectUi.trashRects[i] = {x:trX, y:trY, w:trW, h:trH, idx:i};
-            // Play hint
-            ctx.font='12px VT323, monospace'; ctx.fillStyle=isSelected?'#00dd44':'#2a5a2a';
-            ctx.fillText(isSelected?'[ CLICK TO PLAY ]':'click to play',ccx,cardY+cardH-12);
+
+            // ▶ PLAY — jumps straight in with their saved hero + mode
+            ctx.fillStyle=isSelected?'#1a5a1a':'#103a10'; ctx.fillRect(btnX,btnY,btnW,btnH);
+            ctx.strokeStyle=isSelected?`rgba(68,255,136,${pulse})`:'#2a7a3a'; ctx.lineWidth=1.5;
+            ctx.strokeRect(btnX+0.75,btnY+0.75,btnW-1.5,btnH-1.5);
+            ctx.font='24px VT323, monospace'; ctx.fillStyle='#ffffff';
+            ctx.fillText('▶ PLAY',ccx,btnY+btnH/2);
+
+            // Smaller button to change hero / mode first
+            const chY=btnY+btnH+8, chH=22;
+            ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(btnX,chY,btnW,chH);
+            ctx.strokeStyle='#2a4a2a'; ctx.lineWidth=1; ctx.strokeRect(btnX+0.5,chY+0.5,btnW-1,chH-1);
+            ctx.font='16px VT323, monospace'; ctx.fillStyle='#8fbf8f';
+            ctx.fillText('Change hero / mode',ccx,chY+chH/2);
+            slotSelectUi.changeRects[i] = {x:btnX, y:chY, w:btnW, h:chH, idx:i};
         } else {
-            ctx.font='28px VT323, monospace'; ctx.fillStyle='#1a3a1a';
-            ctx.fillText('. . .',ccx,cardY+66);
-            ctx.font='13px VT323, monospace'; ctx.fillStyle='#2a4a2a';
-            ctx.fillText(`SLOT ${i+1}`,ccx,cardY+94);
-            ctx.fillText('EMPTY',ccx,cardY+110);
-            ctx.font='12px VT323, monospace'; ctx.fillStyle=isSelected?'#00dd44':'#2a5a2a';
-            ctx.fillText(isSelected?'[ CLICK TO CREATE ]':'click to create',ccx,cardY+cardH-12);
+            ctx.font='64px VT323, monospace'; ctx.fillStyle='#1f4a1f';
+            ctx.fillText('+',ccx,cardY+100);
+            ctx.font='22px VT323, monospace'; ctx.fillStyle='#6a9a6a';
+            ctx.fillText('NEW PLAYER',ccx,cardY+160);
+            ctx.font='16px VT323, monospace'; ctx.fillStyle='#3a5a3a';
+            ctx.fillText(`Slot ${i+1} is empty`,ccx,cardY+184);
+            ctx.fillStyle=isSelected?'#103a10':'#0a200a'; ctx.fillRect(btnX,btnY,btnW,btnH);
+            ctx.strokeStyle=isSelected?`rgba(68,255,136,${pulse})`:'#1f4a1f'; ctx.lineWidth=1.5;
+            ctx.strokeRect(btnX+0.75,btnY+0.75,btnW-1.5,btnH-1.5);
+            ctx.font='22px VT323, monospace'; ctx.fillStyle=isSelected?'#ffffff':'#8fbf8f';
+            ctx.fillText('+ CREATE',ccx,btnY+btnH/2);
             slotSelectUi.trashRects[i] = null;
+            slotSelectUi.changeRects[i] = null;
         }
     }
 
     const pulse=0.6+0.4*Math.sin(now*0.003);
-    ctx.font='13px VT323, monospace'; ctx.fillStyle=`rgba(0,200,50,${pulse})`;
+    ctx.font='17px VT323, monospace'; ctx.fillStyle=`rgba(0,200,50,${pulse})`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('CLICK A SLOT TO PLAY  |  [X] TO DELETE',cx,cardY+cardH+22);
+    ctx.fillText('WHO IS PLAYING?  CLICK A CARD  (or press 1-3, then Enter)',cx,cardY+cardH+24);
 
     // Delete confirm overlay
     if (slotSelectUi.deleteConfirmSlot >= 0) {
@@ -2083,7 +2198,7 @@ function renderCharSelect(now) {
     ctx.fillText('CLICK OR 1-4 TO PICK  |  ENTER TO CONFIRM  |  ESC BACK', cx, sy+cH+26);
 }
 
-// Called from slot select: every session starts by picking a hero
+// Slot select → hero select (new players, or "Change hero / mode" on a saved one)
 function openSlot(idx) {
     const slot=loadAllSlots()[idx];
     setupFlow.selectedSlot=idx;
@@ -2426,6 +2541,7 @@ const slotSelectUi = {
     deleteConfirmSlot: -1,
     cardRects: [],
     trashRects: [],
+    changeRects: [],
     deleteYesRect: null,
     deleteCancelRect: null,
 };
@@ -3177,8 +3293,7 @@ function beginNextLevel() {
     levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
     mazeStartTime=performance.now();
     gameState='MAZE';
-    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
-    syncWeaponHud(); syncArmorHud();
+    syncAllHud();
     playDrone();
 }
 
@@ -3219,17 +3334,56 @@ function syncKeyHud()        {
     el.textContent = player.hasKey ? 'FOUND - head to the exit!' : 'NOT FOUND - a zombie has it!';
     cell.classList.toggle('found', player.hasKey);
 }
-function syncChickensHud()   { /* no dedicated HUD element yet */ }
-function syncRepellentsHud() { /* no dedicated HUD element yet */ }
-function syncRabbitFeetHud() { /* no dedicated HUD element yet */ }
-function syncTorchHud()      { /* no dedicated HUD element yet */ }
+function syncChickensHud()   { document.getElementById('hud-chickens').textContent=`${player.chickens} / 3`; }
+function syncRepellentsHud() { document.getElementById('hud-repellents').textContent=`${player.repellents} / 2`; }
+function syncRabbitFeetHud() { document.getElementById('hud-rabbitfeet').textContent=`${player.rabbitFeet} / 5`; }
+function syncTorchHud()      {
+    document.getElementById('hud-torch').textContent=['None','Candle','Lantern','Torch'][player.torchTier] || 'None';
+}
+function syncPlayerCardHud() {
+    const slot = loadAllSlots()[gameConfig.currentSlot];
+    document.getElementById('hud-name').textContent = slot ? slot.name : 'Adventurer';
+    document.getElementById('hud-avatar').src = `Characters/${gameConfig.character}/south.png`;
+}
+// Refreshes every panel value at once (used when a game is loaded/started)
+function syncAllHud() {
+    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
+    syncWeaponHud(); syncArmorHud(); syncZombiesHud(); syncKeyHud();
+    syncChickensHud(); syncRepellentsHud(); syncRabbitFeetHud(); syncTorchHud(); syncPlayerCardHud();
+}
 function resizeUiToCanvas()  {
-    const w = (canvas.width + 2) + 'px';
-    const hpBar = document.getElementById('hp-bar-outer');
-    if (hpBar) hpBar.style.width = w;
-    const sg = document.getElementById('stats-grid');
-    if (sg) sg.style.width = w;
     fitToWindow();
+}
+
+// ── Side panels: hidden on menus, Switch Player only when not mid-fight ──
+const MENU_STATES = new Set(['SLOTSELECT','CHARSELECT','TIERSELECT','MODESELECT','NAMING']);
+let _lastPanelState = null;
+function updatePanelsForState() {
+    if (gameState === _lastPanelState) return;
+    _lastPanelState = gameState;
+    document.body.classList.toggle('in-menu', MENU_STATES.has(gameState));
+    const fighting = gameState === 'COMBAT' || gameState === 'BATTLEPREP';
+    document.getElementById('switch-player-btn').disabled = fighting;
+    document.getElementById('switch-hint').textContent = fighting ? 'Finish the fight first!' : 'Gold & gear are saved';
+}
+
+function switchPlayer() {
+    if (MENU_STATES.has(gameState)) return;
+    if (gameState === 'COMBAT' || gameState === 'BATTLEPREP') return;
+    // Game over has nothing new worth saving; everywhere else, save before leaving
+    if (gameState !== 'GAMEOVER') saveGame();
+    if (combat.zombieTimerId) { clearTimeout(combat.zombieTimerId); combat.zombieTimerId=null; }
+    shopUi.oopsConfirm = false;
+    gameState = 'SLOTSELECT';
+    setupFlow.selectedSlot = gameConfig.currentSlot;
+    setupFlow.slotAnimStart = performance.now();
+}
+
+// Saved slot → straight into the game with the hero + mode they used last time
+function quickPlay(idx) {
+    if (!loadAllSlots()[idx]) return;
+    getAudio();
+    launchGame(idx);
 }
 
 // Scales the whole game (title, HP bar, canvas, stats) to fill the browser window.
@@ -3354,8 +3508,7 @@ function launchGame(slotIdx) {
     levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
     mazeStartTime=performance.now();
     gameState='MAZE';
-    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
-    syncWeaponHud(); syncArmorHud();
+    syncAllHud();
     playDrone();
 }
 
@@ -3405,8 +3558,7 @@ function startNewSlot(slotIdx, name, tierIdx, modeId) {
     levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
     mazeStartTime=performance.now();
     gameState='MAZE';
-    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
-    syncWeaponHud(); syncArmorHud();
+    syncAllHud();
     playDrone();
 }
 
@@ -3433,8 +3585,7 @@ function restart() {
     initLevel();
     mazeStartTime=performance.now();
     gameState='MAZE';
-    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
-    syncWeaponHud(); syncArmorHud();
+    syncAllHud();
     playDrone();
     saveGame();
 }
@@ -3523,7 +3674,10 @@ window.addEventListener('keydown', e => {
         } else if (e.key>='1'&&e.key<='3') {
             setupFlow.selectedSlot = parseInt(e.key,10)-1;
         } else if (e.key==='Enter'||e.key===' ') {
-            openSlot(setupFlow.selectedSlot);
+            const idx=setupFlow.selectedSlot;
+            if (loadAllSlots()[idx]) quickPlay(idx); else openSlot(idx);
+        } else if (e.key==='c'||e.key==='C') {
+            if (loadAllSlots()[setupFlow.selectedSlot]) openSlot(setupFlow.selectedSlot);
         }
         return;
     }
@@ -3753,11 +3907,18 @@ canvas.addEventListener('click', e => {
                 slotSelectUi.deleteConfirmSlot=i; return;
             }
         }
-        // Card body — single click to load/create
+        // "Change hero / mode" button
+        for(let i=0;i<3;i++){
+            const ch=slotSelectUi.changeRects[i];
+            if(ch&&mx>=ch.x&&mx<=ch.x+ch.w&&my>=ch.y&&my<=ch.y+ch.h){
+                openSlot(i); return;
+            }
+        }
+        // Card body — saved player plays immediately; empty slot starts setup
         for(let i=0;i<3;i++){
             const cr=slotSelectUi.cardRects[i];
             if(cr&&mx>=cr.x&&mx<=cr.x+cr.w&&my>=cr.y&&my<=cr.y+cr.h){
-                openSlot(i);
+                if (loadAllSlots()[i]) quickPlay(i); else openSlot(i);
                 return;
             }
         }
@@ -3936,18 +4097,24 @@ function gameLoop(now) {
     if (gameState==='MAZE'||gameState==='COMBAT'||gameState==='PAUSED'||gameState==='LEVELCOMPLETE') {
         drawSaveFlash(now);
     }
+    updatePanelsForState();
 
     requestAnimationFrame(gameLoop);
 }
 
 window.addEventListener('resize', fitToWindow);
 
+{
+    const btn = document.getElementById('switch-player-btn');
+    // Never let the button take keyboard focus — Space/Enter are game keys
+    btn.addEventListener('mousedown', e => e.preventDefault());
+    btn.addEventListener('click', () => { btn.blur(); switchPlayer(); });
+}
+
 document.fonts.ready.then(() => {
     setupFlow.slotAnimStart = performance.now();
+    syncAllHud();
     resizeUiToCanvas();
-    syncLevelHud(); syncHpHud(); syncGoldHud();
-    syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
-    syncWeaponHud(); syncArmorHud(); syncZombiesHud();
     requestAnimationFrame(gameLoop);
 });
 </script>
