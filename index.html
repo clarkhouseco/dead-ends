@@ -1,0 +1,3923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEAD ENDS</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #020502;
+            color: #00ff41;
+            font-family: 'VT323', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-title {
+            font-size: 54px;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px #00ff41, 0 0 50px rgba(0,255,65,0.25);
+            margin-bottom: 4px;
+        }
+
+        #hp-bar-outer {
+            position: relative;
+            height: 24px;
+            background: #0a0a0a;
+            border: 1px solid #003311;
+            margin-bottom: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        #hp-bar-fill {
+            height: 100%;
+            background: #00bb33;
+            width: 100%;
+            transition: width 0.15s, background-color 0.2s;
+        }
+        #hp-bar-text {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            color: #ccffcc;
+            letter-spacing: 1px;
+            pointer-events: none;
+        }
+
+        #canvas-container { position: relative; }
+
+        #canvas-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent 0px, transparent 2px,
+                rgba(0,0,0,0.10) 2px, rgba(0,0,0,0.10) 4px
+            );
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+            border: 1px solid #002211;
+            box-shadow:
+                0 0 0 1px #001a0a,
+                0 0 40px rgba(0,255,65,0.08),
+                inset 0 0 40px rgba(0,0,0,0.9);
+            cursor: crosshair;
+        }
+
+        #stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px 8px;
+            padding: 5px 2px;
+            margin-top: 4px;
+            font-size: 14px;
+            color: #2a6b2a;
+            letter-spacing: 1px;
+        }
+        .stat-cell {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            background: rgba(0,8,0,0.5);
+            border: 1px solid #0a200a;
+            padding: 2px 7px;
+        }
+        .stat-cell span { color: #00cc33; }
+        .stat-cell.key-cell { grid-column: 1 / -1; justify-content: center; }
+        .stat-cell.key-cell.found { border-color: #aa8800; }
+        .stat-cell.key-cell.found span { color: #ffdd44; }
+
+        #loot-popup {
+            display: flex;
+            visibility: hidden;
+            margin-top: 8px;
+            width: 100%;
+            max-width: 556px;
+            min-height: 56px;
+            background: rgba(3,10,3,0.97);
+            border: 1.5px solid #00ff41;
+            box-shadow: 0 0 14px rgba(0,255,65,0.3);
+            padding: 10px 18px;
+            text-align: center;
+            cursor: pointer;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        #loot-popup.visible { visibility: visible; }
+        #loot-popup #loot-title {
+            font-size: 26px;
+            font-family: 'VT323', monospace;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px currentColor;
+        }
+        #loot-popup #loot-sub {
+            font-size: 14px;
+            color: #556655;
+            font-family: 'VT323', monospace;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-title">DEAD ENDS</div>
+    <div id="hp-bar-outer">
+        <div id="hp-bar-fill"></div>
+        <div id="hp-bar-text"><span id="hud-hp">30</span>&nbsp;/&nbsp;<span id="hud-maxhp">30</span>&nbsp;HP</div>
+    </div>
+    <div id="canvas-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <div id="stats-grid">
+        <div class="stat-cell">🪙 Gold: <span id="hud-gold">0</span></div>
+        <div class="stat-cell">⚔️ Weapon: <span id="hud-weapon">Wooden Stick</span></div>
+        <div class="stat-cell">🛡️ Armor: <span id="hud-armor">No Armor</span></div>
+        <div class="stat-cell">⭐ Level: <span id="hud-plevel">1</span></div>
+        <div class="stat-cell">📊 XP: <span id="hud-xp">0</span>/<span id="hud-xp-next">30</span></div>
+        <div class="stat-cell">🧪 Potions: <span id="hud-potions">0</span></div>
+        <div class="stat-cell">🏰 Maze: <span id="hud-level">01</span></div>
+        <div class="stat-cell">⏱️ Time: <span id="hud-timer">0:00</span></div>
+        <div class="stat-cell">🧟 Zombies: <span id="hud-zombies">?</span></div>
+        <div class="stat-cell key-cell" id="hud-key-cell">🗝️ Exit Key: <span id="hud-key">NOT FOUND - a zombie has it!</span></div>
+    </div>
+    <div id="loot-popup">
+        <span id="loot-title"></span>
+        <span id="loot-sub"></span>
+    </div>
+
+<script>
+'use strict';
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  UTILITY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function randInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  WORD BANK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const WORDS = (function() {
+    const w2 = ['at','be','do','go','he','if','in','is','it','me','my','no','of','on','or','so','to','up','us','we'];
+    const w3 = ['ace','add','age','aim','bad','bag','bat','big','bit','box','bug','buy','car','cat','cow','cup','cut',
+                'day','dig','dog','ear','eat','egg','end','eye','fan','far','fat','fly','fun','got','had','hat','hit',
+                'hot','hug','ice','joy','key','kid','law','leg','let','lid','lip','map','mat','mix','mud','net','new',
+                'old','one','out','own','pan','pet','pig','pin','pop','pot','put','ran','rat','red','row','run','sad',
+                'sat','saw','say','sea','set','sit','sky','son','sun','tap','ten','tip','top','try','van','war','web',
+                'wet','who','why','win','wit','yes','you','zip','zoo'];
+    const w4 = ['arch','bark','bear','bell','bite','bold','bolt','bone','book','burn','cage','cake','call','calm','card',
+                'cave','claw','clip','club','coat','cord','corn','crab','crow','cure','dare','dark','dawn','dead','deal',
+                'dear','deep','desk','door','drag','draw','dust','face','fail','fall','fame','farm','fast','fate','fear',
+                'feel','file','fill','find','fire','fish','flag','flow','foam','fold','ford','form','fort','free','fuel',
+                'fury','gate','gear','gift','give','glow','gold','gore','grim','grip','grow','gulf','hack','hail','half',
+                'hall','halt','harm','haze','head','heal','heat','heel','hide','high','hold','hole','home','hook','horn',
+                'hulk','hurt','icon','iron','jail','jolt','jump','junk','keen','keep','kill','kind','king','knot','lack',
+                'lamp','land','lore','lurk','lust','mail','mark','mask','mast','maze','meal','meat','meet','melt','mild',
+                'mind','mine','mist','moan','mold','monk','mood','moon','moth','nail','name','neck','nest','node','noon',
+                'oath','open','over','pack','pact','pain','pale','path','peak','pest','pick','pile','plan','play','plot',
+                'pull','pump','pure','push','rack','rage','raid','rail','rain','ramp','read','reef','rest','rich','ride',
+                'ring','riot','rise','risk','road','roam','roar','rock','role','roll','roof','root','rope','rose','ruin',
+                'rule','rush','rust','safe','sail','sand','scar','seal','seek','send','shed','ship','shot','show','sick',
+                'sigh','sign','silk','sing','sink','site','skin','skip','slab','slam','slay','slim','slip','slow','snap',
+                'snow','soak','soar','sock','soft','soil','song','sore','soul','span','spin','spit','spot','spur','star',
+                'stay','stem','step','stir','stun','suit','sunk','sure','tale','tall','tame','tear','tell','tend','test',
+                'tide','tile','time','tire','toil','toll','tone','toss','tour','town','trap','trim','trip','true','tune',
+                'turf','turn','twin','type','urge','vast','veil','vein','vent','vine','void','wade','wait','wake','walk',
+                'wall','wave','weak','west','wild','will','wind','wine','wing','wise','wish','wolf','worm','wrap'];
+    const w5 = ['adapt','agree','alarm','anger','ankle','arise','avert','avoid','begin','below','blaze','bleak','blend',
+                'block','bloom','board','brave','break','brick','brief','brink','broke','brook','brood','brush','carry',
+                'catch','cause','chain','chair','chant','chaos','charm','chest','chill','claim','crawl','creed','creep',
+                'crest','crime','cruel','crush','crypt','cycle','dance','dealt','decay','delay','depth','devil','dirty',
+                'ditch','dizzy','dodge','dream','dress','drift','drill','drink','drive','dwell','dying','earth','ember',
+                'empty','enemy','enter','exile','faint','faith','false','fancy','fatal','feast','fever','field','fiend',
+                'fight','final','flare','flash','float','flood','focus','force','forge','frail','frame','frost','ghost',
+                'giant','glare','gleam','gloom','grace','grain','grand','grant','grasp','grave','greed','greet','grief',
+                'grill','grind','groan','group','grove','guard','haven','heart','herbs','human','judge','knife','knock',
+                'known','lance','large','latch','learn','leave','level','light','limit','loose','lurch','magic','major',
+                'march','might','minor','mourn','mouth','muddy','never','night','noble','occur','offer','onset','order',
+                'outer','place','plank','plant','plead','point','poise','power','press','price','pride','prime','prism',
+                'prone','proof','prowl','pulse','purge','quest','quick','quiet','reach','ready','realm','rebel','renew',
+                'repay','ridge','rigid','risen','rival','river','roast','rough','round','route','royal','rusty','saved',
+                'scale','scare','scene','scout','scowl','seize','sense','serve','seven','shade','shame','shape','share',
+                'sharp','shell','shift','shoot','shore','sight','skill','smell','snare','sneak','snarl','spark','spare',
+                'spawn','spear','speed','spell','spent','spill','spine','split','spoke','spook','sport','stain','stand',
+                'stark','stave','steal','steel','stern','still','stone','storm','story','stout','stuck','swamp','swear',
+                'sweep','swift','taint','taste','tense','three','throw','trace','track','trail','trick','troop','trust',
+                'truth','twice','twist','valor','vault','vital','witch','wrath','write','yield','young'];
+    const w6 = ['accuse','adrift','afraid','assail','attach','autumn','banish','battle','beacon','beauty','before',
+                'beware','beyond','blight','broach','burrow','circle','cleave','commit','cursed','danger','darker',
+                'deadly','defeat','emerge','escape','famine','fierce','fracas','frozen','gallop','gather','gloomy',
+                'goblin','grieve','grimly','grovel','haunts','herald','hollow','horror','hunter','hustle','ignite',
+                'impact','invite','kindle','knight','lament','legacy','legend','lethal','liquid','menace','mortal',
+                'mutter','narrow','obsess','pardon','pierce','plague','poison','portal','prison','prompt','pursue',
+                'ravage','ravine','recoil','refuse','remark','remedy','remove','repent','reveal','riches','ritual',
+                'rotten','rubble','ruling','rumble','savage','scorch','sealed','secret','shadow','shiver','shriek',
+                'silent','sinful','sleuth','stolen','stormy','struck','subdue','suffer','sunset','symbol','terror',
+                'thrash','throne','thrown','timber','treble','unrest','vanish','vendor','virtue','vision','wander',
+                'warden','weapon','wizard','wraith','writhe'];
+    const w7 = ['ability','ancient','assault','awakens','battles','beneath','bravely','bristle','cauldron','chaotic',
+                'cloaked','corrupt','crimson','crumble','crusade','darkens','darkest','despair','devious','devoted',
+                'dungeon','emperor','enslave','eternal','evading','exhaust','fearful','gallant','gnarled','grimace',
+                'guardian','haunting','hideout','hostile','hunters','inflict','kobold','looming','massive','marauds',
+                'menacing','monster','mortals','mournful','mystery','petrify','phantom','pillage','plunder','possess',
+                'protect','rampage','ransack','ravaged','rebirth','revenge','roaming','rampant','sanctum','scourge',
+                'screams','serpent','shadowy','shackle','sinister','skeletal','slumber','sorcery','specter','stalking',
+                'strangle','summoned','torment','twisted','undying','unleash','unravel','vampire','venomous','warlord',
+                'watcher','warrior','wretched','zealous'];
+    const w8 = ['abandoned','blighted','captured','conquest','cowardly','crawling','damnation','decaying','defeated',
+                'demonic','desperate','destroyer','devoured','eliminate','enchanted','entombed','fearsome','forsaken',
+                'galloping','glittering','infernal','labyrinth','malicious','nightmare','obliterate','overlords',
+                'phantoms','plunging','possessed','predatory','relentless','ruthless','screaming','shattered',
+                'sorcerers','spectral','tormented','treacherous','undaunted','unleashed','vengeance','warlords'];
+    return [...w2,...w3,...w4,...w5,...w6,...w7,...w8];
+})();
+
+function getWordForLevel(level) {
+    let minLen, maxLen;
+    if      (level <= 2)  { minLen = 2; maxLen = 2; }
+    else if (level <= 5)  { minLen = 1; maxLen = 3; }
+    else if (level <= 10) { minLen = 4; maxLen = 5; }
+    else if (level <= 15) { minLen = 5; maxLen = 6; }
+    else                  { minLen = 6; maxLen = 8; }
+    const pool = WORDS.filter(w => w.length >= minLen && w.length <= maxLen);
+    return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : 'hit';
+}
+
+function getWordForTier(tier) {
+    const mins = [2, 3, 4, 5];
+    const maxs = [3, 4, 6, 8];
+    const min = mins[tier] || 2, max = maxs[tier] || 4;
+    const pool = WORDS.filter(w => w.length >= min && w.length <= max);
+    return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : 'hit';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  WEAPONS + ARMORS + XP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const WEAPONS = [
+    { name: 'Wooden Stick',    damage: 5,  cost: 0,    level: 1  },
+    { name: 'Sharpened Stick', damage: 8,  cost: 80,   level: 1  },
+    { name: 'Rusty Knife',     damage: 12, cost: 180,  level: 2  },
+    { name: 'Iron Sword',      damage: 18, cost: 320,  level: 3  },
+    { name: 'Steel Blade',     damage: 25, cost: 500,  level: 5  },
+    { name: 'Silver Sword',    damage: 35, cost: 720,  level: 7  },
+    { name: 'Enchanted Blade', damage: 50, cost: 1000, level: 10 },
+];
+
+const ARMORS = [
+    { name: 'No Armor',        defense: 0, cost: 0,   level: 1  },
+    { name: 'Leather Vest',    defense: 1, cost: 40,  level: 1  },
+    { name: 'Chainmail',       defense: 2, cost: 90,  level: 3  },
+    { name: 'Iron Plate',      defense: 3, cost: 150, level: 5  },
+    { name: 'Steel Armor',     defense: 4, cost: 220, level: 7  },
+    { name: 'Enchanted Armor', defense: 5, cost: 320, level: 10 },
+];
+
+function xpToNextLevel(lvl) {
+    const table = [30, 70, 130, 200, 270, 350];
+    if (lvl <= table.length) return table[lvl - 1];
+    return table[table.length - 1] + (lvl - table.length) * 80;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  TIER + MODE CONFIG
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const TIER_CONFIG = [
+    { name:'Little Explorer',   grade:'Ages 4-5',   emoji:'*',  color:'#44dd88', glow:'#00ff88',
+      wordLenMin:2, wordLenMax:3, fontSize:48, attackMs:8000 },
+    { name:'Junior Adventurer', grade:'Ages 6-7',   emoji:'+',  color:'#4488ff', glow:'#88aaff',
+      wordLenMin:3, wordLenMax:4, fontSize:40, attackMs:6000 },
+    { name:'Brave Knight',      grade:'Ages 8-9',   emoji:'#',  color:'#ffaa33', glow:'#ffcc66',
+      wordLenMin:4, wordLenMax:6, fontSize:36, attackMs:5000 },
+    { name:'Shadow Hunter',     grade:'Ages 10-12', emoji:'@',  color:'#cc44ff', glow:'#ee88ff',
+      wordLenMin:5, wordLenMax:8, fontSize:32, attackMs:4000 },
+];
+
+const LEARNING_MODES = [
+    { id:'TYPING',  label:'Typing',      desc:'Type words to strike' },
+    { id:'MATH',    label:'Math',        desc:'Solve problems to strike' },
+    { id:'COLOR',   label:'Color Match', desc:'Click the right color' },
+];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CHALLENGE DATA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const COLOR_DATA = {
+    RED:'#ff4040', BLUE:'#4477ff', GREEN:'#33cc44',
+    YELLOW:'#ffdd00', PURPLE:'#bb44ee', ORANGE:'#ff9922',
+};
+const COLOR_NAMES = Object.keys(COLOR_DATA);
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  GAME CONFIG
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const GAME_CONFIG = {
+    gridSize: 10,
+    cellSize: 60,
+    padding:  3,
+
+    combat: {
+        playerMaxHp:     30,
+        startWeapon:     { name: 'Wooden Stick', damage: 5 },
+        zombieMaxHp:     15,
+        zombieDamage:    3,
+        zombieAttackMs:  5000,
+        flashDurationMs: 300,
+        killPauseMs:     900,
+        zombieGoldMin:   8,
+        zombieGoldMax:   12,
+        armorMaxLevel:   3,
+    },
+
+    scaling: {
+        baseGridSize:      10,
+        maxGridSize:       22,
+        gridGrowEveryN:    2,
+        gridGrowBy:        2,
+        zombieHpPerLevel:  2,
+        zombieDmgPerLevel: 1,
+        guardEveryN:       3,
+    },
+
+    chests: {
+        countMin:        2,
+        countMax:        4,
+        goldMin:         8,
+        goldMax:         20,
+        potionHeal:      10,
+        popupDurationMs: 2600,
+        lootWeights:     { gold: 45, potion: 30, empty: 25 },
+        emptyMessages: [
+            'JUST COBWEBS AND DESPAIR',
+            'NOTHING. ABSOLUTELY NOTHING.',
+            'A RECEIPT FROM 1987',
+            'SOMEONE BEAT YOU TO IT',
+            'A SINGLE DEAD MOTH',
+            'THE REAL TREASURE WAS THE PLAGUE WE CAUGHT ALONG THE WAY',
+        ],
+    },
+
+    colors: {
+        background:       '#030803',
+        cellDefault:      '#060d06',
+        cellDeadEnd:      '#0e0606',
+        wall:             '#00cc33',
+        wallGlow:         '#00ff41',
+        wallGlowBlur:     5,
+        wallWidth:        2,
+        cellStart:        'rgba(10,60,220,0.22)',
+        cellExit:         'rgba(200,0,180,0.22)',
+        labelStart:       '#7799ff',
+        labelExit:        '#ff66ee',
+        player:           '#ff3300',
+        playerGlow:       'rgba(255,80,20,0.55)',
+        playerGlowBlur:   16,
+        zombieBody:       '#4a3a10',
+        zombieHead:       '#3d5218',
+        zombieEye:        '#dd1100',
+        zombieGlow:       'rgba(180,60,0,0.45)',
+        zombieGlowBlur:   10,
+        chestBase:        '#4a2e0a',
+        chestLid:         '#7a5020',
+        chestBand:        '#aa8833',
+        chestLock:        '#ffcc22',
+        chestGlow:        'rgba(200,160,20,0.55)',
+        chestGlowBlur:    10,
+        popupGold:        '#ffcc33',
+        popupPotion:      '#ff5577',
+        popupEmpty:       '#556a55',
+        combatOverlay:    'rgba(0,0,0,0.82)',
+        combatPanel:      '#050d05',
+        combatBorder:     '#00cc33',
+        combatBorderGlow: '#00ff41',
+        combatTitle:      '#00ff41',
+        hpBarBg:          '#0f0f0f',
+        hpBarPlayer:      '#00bb33',
+        hpBarWarn:        '#bbaa00',
+        hpBarDanger:      '#cc2200',
+        hpBarZombie:      '#993300',
+        countdownBar:     '#882200',
+        countdownBarBg:   '#150600',
+        shopPanel:        '#030a03',
+        shopItemAvail:    '#aaddaa',
+        shopItemBroke:    '#664444',
+        shopItemMaxed:    '#2f432f',
+        shopCostAfford:   '#ccaa00',
+        shopCostNoBuy:    '#553333',
+        shopDescAvail:    '#446644',
+        shopDescOther:    '#333a33',
+        difficultyWarn:   '#774422',
+        levelComplete:    '#00ff41',
+        gameOverTitle:    '#cc0000',
+        gameOverText:     '#884444',
+        gameOverSub:      '#4a2a2a',
+    },
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CELL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class Cell {
+    constructor(col, row) {
+        this.col = col; this.row = row;
+        this.walls     = { N: true, S: true, E: true, W: true };
+        this.visited   = false;
+        this.isDeadEnd = false;
+    }
+    get openPassages() {
+        return (this.walls.N?0:1)+(this.walls.S?0:1)+(this.walls.E?0:1)+(this.walls.W?0:1);
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  MAZE — Recursive Backtracker + BFS exit placement
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const DIRS = [
+    { dc:  0, dr: -1, wall: 'N', opposite: 'S' },
+    { dc:  0, dr:  1, wall: 'S', opposite: 'N' },
+    { dc:  1, dr:  0, wall: 'E', opposite: 'W' },
+    { dc: -1, dr:  0, wall: 'W', opposite: 'E' },
+];
+
+class Maze {
+    constructor(size) {
+        this.size = size;
+        this.grid = Array.from({ length: size }, (_, r) =>
+            Array.from({ length: size }, (_, c) => new Cell(c, r))
+        );
+        this._generate();
+        this.deadEndCount = this._tagDeadEnds();
+        const exit = this._findExitCell();
+        this.exitCol = exit.col;
+        this.exitRow = exit.row;
+    }
+
+    cell(col, row) {
+        if (col < 0 || col >= this.size || row < 0 || row >= this.size) return null;
+        return this.grid[row][col];
+    }
+
+    _generate() {
+        const start = this.cell(0, 0);
+        start.visited = true;
+        const stack = [start];
+        while (stack.length > 0) {
+            const cur = stack[stack.length - 1];
+            const avail = DIRS
+                .map(d => { const nb = this.cell(cur.col+d.dc, cur.row+d.dr); return (nb&&!nb.visited)?{nb,d}:null; })
+                .filter(Boolean);
+            if (avail.length === 0) { stack.pop(); }
+            else {
+                const { nb, d } = avail[Math.floor(Math.random()*avail.length)];
+                cur.walls[d.wall] = false; nb.walls[d.opposite] = false;
+                nb.visited = true; stack.push(nb);
+            }
+        }
+    }
+
+    _tagDeadEnds() {
+        let count = 0;
+        for (const row of this.grid)
+            for (const cell of row)
+                if (cell.openPassages === 1) { cell.isDeadEnd = true; count++; }
+        return count;
+    }
+
+    _findExitCell() {
+        const dist = new Map(); dist.set('0,0', 0);
+        const queue = [this.cell(0, 0)];
+        while (queue.length > 0) {
+            const cur = queue.shift();
+            const d = dist.get(`${cur.col},${cur.row}`);
+            for (const dir of DIRS) {
+                if (cur.walls[dir.wall]) continue;
+                const nc = cur.col+dir.dc, nr = cur.row+dir.dr;
+                const nk = `${nc},${nr}`;
+                if (!dist.has(nk)) { dist.set(nk, d+1); queue.push(this.cell(nc, nr)); }
+            }
+        }
+        let best = null, bestDist = -1;
+        for (const row of this.grid)
+            for (const cell of row)
+                if (cell.isDeadEnd && !(cell.col===0&&cell.row===0)) {
+                    const d = dist.get(`${cell.col},${cell.row}`) || 0;
+                    if (d > bestDist) { bestDist = d; best = cell; }
+                }
+        return best || this.cell(this.size-1, this.size-1);
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CANVAS SETUP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const C      = GAME_CONFIG.colors;
+const CC     = GAME_CONFIG.combat;
+const CK     = GAME_CONFIG.chests;
+const SC     = GAME_CONFIG.scaling;
+const PAD    = GAME_CONFIG.padding;
+
+let GS = GAME_CONFIG.gridSize;
+let CS = GAME_CONFIG.cellSize;
+
+canvas.width  = GS * CS + PAD * 2;
+canvas.height = GS * CS + PAD * 2;
+
+function cellOrigin(col, row) { return { x: PAD + col*CS, y: PAD + row*CS }; }
+
+function computeLevelParams(level) {
+    const gridSize    = Math.min(SC.maxGridSize, SC.baseGridSize + SC.gridGrowBy * Math.floor((level-1)/SC.gridGrowEveryN));
+    const cellSize    = Math.floor(600 / gridSize);
+    const zombieHp    = CC.zombieMaxHp  + SC.zombieHpPerLevel  * (level-1);
+    const zombieDmg   = CC.zombieDamage + SC.zombieDmgPerLevel * (level-1);
+    const extraGuards = Math.floor(level / SC.guardEveryN);
+    return { gridSize, cellSize, zombieHp, zombieDmg, extraGuards };
+}
+
+const run = (() => {
+    const p = computeLevelParams(1);
+    return { level:1, zombieHp:p.zombieHp, zombieDmg:p.zombieDmg, extraGuards:p.extraGuards };
+})();
+
+const nextLevel = { level:0, gridSize:0, cellSize:0, zombieHp:0, zombieDmg:0, extraGuards:0 };
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  WEB AUDIO
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let audioCtx = null;
+function getAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+
+function playThud() {
+    try {
+        const ac = getAudio(); const o = ac.createOscillator(); const g = ac.createGain();
+        o.connect(g); g.connect(ac.destination);
+        o.frequency.setValueAtTime(200, ac.currentTime);
+        o.frequency.exponentialRampToValueAtTime(55, ac.currentTime + 0.18);
+        g.gain.setValueAtTime(0.35, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
+        o.start(ac.currentTime); o.stop(ac.currentTime + 0.22);
+    } catch(e) {}
+}
+
+function playCrunch() {
+    try {
+        const ac = getAudio();
+        const len = Math.floor(ac.sampleRate * 0.14);
+        const buf = ac.createBuffer(1, len, ac.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random()*2-1) * (1-i/len);
+        const src = ac.createBufferSource(); src.buffer = buf;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.5, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.14);
+        src.connect(g); g.connect(ac.destination); src.start();
+    } catch(e) {}
+}
+
+function playChime() {
+    try {
+        const ac = getAudio();
+        [523, 659, 784].forEach((freq, i) => {
+            const o = ac.createOscillator(); const g = ac.createGain();
+            o.connect(g); g.connect(ac.destination); o.type = 'sine'; o.frequency.value = freq;
+            const t = ac.currentTime + i * 0.09;
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.28, t+0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, t+0.4);
+            o.start(t); o.stop(t+0.4);
+        });
+    } catch(e) {}
+}
+
+function playDrone() {
+    try {
+        const ac = getAudio();
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.connect(g); g.connect(ac.destination); o.type = 'sawtooth';
+        o.frequency.setValueAtTime(55, ac.currentTime);
+        o.frequency.exponentialRampToValueAtTime(38, ac.currentTime + 1.8);
+        g.gain.setValueAtTime(0, ac.currentTime);
+        g.gain.linearRampToValueAtTime(0.13, ac.currentTime + 0.4);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 2.2);
+        o.start(ac.currentTime); o.stop(ac.currentTime + 2.2);
+    } catch(e) {}
+}
+
+function playCorrect() {
+    try {
+        const ac = getAudio(); const o = ac.createOscillator(); const g = ac.createGain();
+        o.connect(g); g.connect(ac.destination); o.type = 'sine'; o.frequency.value = 880;
+        g.gain.setValueAtTime(0.28, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
+        o.start(ac.currentTime); o.stop(ac.currentTime + 0.22);
+    } catch(e) {}
+}
+
+function playWrong() {
+    try {
+        const ac = getAudio(); const o = ac.createOscillator(); const g = ac.createGain();
+        o.connect(g); g.connect(ac.destination); o.type = 'sawtooth';
+        o.frequency.setValueAtTime(150, ac.currentTime);
+        o.frequency.exponentialRampToValueAtTime(80, ac.currentTime + 0.18);
+        g.gain.setValueAtTime(0.28, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
+        o.start(ac.currentTime); o.stop(ac.currentTime + 0.22);
+    } catch(e) {}
+}
+
+function playFanfare() {
+    try {
+        const ac = getAudio();
+        [523, 659, 784, 1047].forEach((freq, i) => {
+            const o = ac.createOscillator(); const g = ac.createGain();
+            o.connect(g); g.connect(ac.destination); o.type = 'sine'; o.frequency.value = freq;
+            const t = ac.currentTime + i * 0.13;
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.26, t+0.03);
+            g.gain.exponentialRampToValueAtTime(0.001, t+0.42);
+            o.start(t); o.stop(t+0.5);
+        });
+    } catch(e) {}
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SPARKLES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let sparkles = [];
+
+function spawnSparkles(col, row, now) {
+    const { x, y } = cellOrigin(col, row);
+    const cx = x + CS/2, cy = y + CS/2;
+    for (let i = 0; i < 14; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 0.6 + Math.random() * 1.4;
+        sparkles.push({
+            x: cx, y: cy,
+            vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 0.8,
+            born: now,
+            life: 700 + Math.random() * 500,
+            size: 1.5 + Math.random() * 2,
+            color: Math.random() > 0.5 ? '#ffcc22' : '#ffeeaa',
+        });
+    }
+}
+
+function drawSparkles(now) {
+    sparkles = sparkles.filter(s => now - s.born < s.life);
+    ctx.save();
+    ctx.shadowBlur = 0;
+    for (const s of sparkles) {
+        const t = (now - s.born) / s.life;
+        const alpha = (1 - t) * 0.9;
+        const elapsed = now - s.born;
+        const x = s.x + s.vx * elapsed * 0.05;
+        const y = s.y + s.vy * elapsed * 0.05 + 0.001 * elapsed * elapsed * 0.05;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = s.color;
+        ctx.shadowColor = s.color;
+        ctx.shadowBlur = 5;
+        ctx.fillRect(x - s.size/2, y - s.size/2, s.size, s.size);
+    }
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur  = 0;
+    ctx.restore();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PLAYER MOVEMENT TWEEN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const playerAnim = { fromCol:0, fromRow:0, toCol:0, toRow:0, startTime:0, duration:110 };
+
+function getPlayerVisualPos(now) {
+    const elapsed = now - playerAnim.startTime;
+    const t = Math.min(1, elapsed / playerAnim.duration);
+    const ease = t * t * (3 - 2*t);
+    return {
+        col: playerAnim.fromCol + (playerAnim.toCol - playerAnim.fromCol) * ease,
+        row: playerAnim.fromRow + (playerAnim.toRow - playerAnim.fromRow) * ease,
+    };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SPRITES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function drawZombieSprite(cx, cy, scale, flashAlpha) {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
+    ctx.fillStyle = '#2a1e06';
+    ctx.fillRect(-8,18,6,12); ctx.fillRect(3,20,6,10);
+    ctx.fillStyle = C.zombieBody;
+    ctx.fillRect(-9,1,18,18); ctx.fillRect(-23,-5,14,5); ctx.fillRect(9,-8,14,5);
+    ctx.fillStyle = '#261908';
+    ctx.fillRect(-27,-6,5,4); ctx.fillRect(23,-9,5,4);
+    ctx.fillStyle = C.zombieHead; ctx.fillRect(-8,-16,16,15);
+    ctx.fillStyle = C.zombieEye;
+    ctx.fillRect(-6,-13,5,4); ctx.fillRect(2,-13,5,4);
+    ctx.fillStyle = '#100000'; ctx.fillRect(-5,-4,10,4);
+    ctx.fillStyle = '#991100'; ctx.fillRect(-4,-4,3,2); ctx.fillRect(2,-4,3,2);
+    if (flashAlpha > 0) {
+        ctx.fillStyle = `rgba(255,110,0,${flashAlpha})`;
+        ctx.fillRect(-27,-16,56,50);
+    }
+    ctx.restore();
+}
+
+// ── Playable characters (sprites live in Characters/<folder>/<direction>.png) ──
+const CHARACTERS = [
+    { id:'lizard',   name:'Sir Lizard',    desc:'Top hat and cane',   color:'#66dd66' },
+    { id:'princess', name:'Princess',      desc:'Pretty in pink',     color:'#ff88cc' },
+    { id:'sweep',    name:'Chimney Sweep', desc:'Scrappy and brave',  color:'#ccaa66' },
+    { id:'wizard',   name:'Wizard',        desc:'Wand at the ready',  color:'#8899ff' },
+];
+const SPRITE_DIRS = ['north','south','east','west'];
+const characterSprites = {};
+for (const ch of CHARACTERS) {
+    characterSprites[ch.id] = {};
+    for (const dir of SPRITE_DIRS) {
+        const img = new Image();
+        img.src = `Characters/${ch.id}/${dir}.png`;
+        characterSprites[ch.id][dir] = img;
+    }
+}
+
+function getCharacterIdx(id) {
+    const i = CHARACTERS.findIndex(c => c.id === id);
+    return i >= 0 ? i : 0;
+}
+
+// Draws a character sprite centred on (cx, cy) at `size` px. Falls back to the
+// old red block if the image hasn't loaded (e.g. Characters folder missing).
+function drawCharacterSprite(charId, facing, cx, cy, size, flashAlpha) {
+    const img = (characterSprites[charId] || characterSprites.lizard)[facing] ||
+                (characterSprites[charId] || characterSprites.lizard).south;
+    ctx.save();
+    if (img && img.complete && img.naturalWidth > 0) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, Math.round(cx - size/2), Math.round(cy - size/2), Math.round(size), Math.round(size));
+        if (flashAlpha > 0) {
+            // Tint only the sprite's pixels red when hit
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.fillStyle = `rgba(255,30,0,${flashAlpha})`;
+            ctx.fillRect(cx - size/2, cy - size/2, size, size);
+        }
+    } else {
+        const s = size * 0.35;
+        ctx.fillStyle = C.player; ctx.fillRect(cx-s, cy-s, s*2, s*2);
+        if (flashAlpha > 0) { ctx.fillStyle = `rgba(255,30,0,${flashAlpha})`; ctx.fillRect(cx-s, cy-s, s*2, s*2); }
+    }
+    ctx.restore();
+}
+
+function drawPlayerAvatar(cx, cy, scale, flashAlpha) {
+    // Face the zombie (which sits to the right in the combat panel)
+    drawCharacterSprite(gameConfig.character, 'east', cx, cy, 48 * scale, flashAlpha);
+}
+
+function drawChestSprite(cx, cy, scale) {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
+    ctx.fillStyle = C.chestBase; ctx.fillRect(-13,-1,26,12);
+    ctx.fillStyle = '#3a2208'; ctx.fillRect(-11,3,22,1); ctx.fillRect(-11,7,22,1);
+    ctx.fillStyle = C.chestLid; ctx.fillRect(-13,-11,26,11);
+    ctx.fillStyle = '#9a6a30'; ctx.fillRect(-12,-10,24,2);
+    ctx.fillStyle = C.chestBand;
+    ctx.fillRect(-13,-2,26,2); ctx.fillRect(-13,-11,2,23); ctx.fillRect(11,-11,2,23);
+    ctx.fillStyle = C.chestLock; ctx.fillRect(-4,-8,8,8);
+    ctx.fillStyle = '#aa8800'; ctx.fillRect(-2,-6,4,4);
+    ctx.fillStyle = '#1a0800'; ctx.fillRect(-1,-5,2,3);
+    ctx.fillStyle = C.chestLock;
+    ctx.fillRect(-12,0,3,3); ctx.fillRect(9,0,3,3); ctx.fillRect(-12,8,3,3);
+    ctx.fillRect(9,8,3,3); ctx.fillRect(-12,-10,3,3); ctx.fillRect(9,-10,3,3);
+    ctx.restore();
+}
+
+function drawExitDoor(cx, cy, scale, unlocked, now) {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
+    ctx.shadowBlur = 0;
+    // Frame + arch
+    ctx.fillStyle = '#3a2410'; ctx.fillRect(-13,-14,26,30);
+    ctx.fillStyle = unlocked ? '#1a0a1a' : '#6b3f1a';
+    ctx.fillRect(-10,-11,20,27);
+    if (unlocked) {
+        // Open door swung to the side, glowing doorway
+        const glow = 0.45 + 0.25*Math.sin(now*0.005);
+        ctx.fillStyle = `rgba(255,102,238,${glow})`; ctx.fillRect(-10,-11,20,27);
+        ctx.fillStyle = '#6b3f1a'; ctx.fillRect(-10,-11,5,27);
+    } else {
+        // Planks + padlock
+        ctx.fillStyle = '#4a2a10'; ctx.fillRect(-4,-11,1,27); ctx.fillRect(3,-11,1,27);
+        ctx.fillStyle = '#999999'; ctx.fillRect(-4,-1,8,2);
+        ctx.strokeStyle = '#dddddd'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 2, 3, Math.PI, 0); ctx.stroke();
+        ctx.fillStyle = '#ffcc22'; ctx.fillRect(-4,2,8,7);
+        ctx.fillStyle = '#1a0800'; ctx.fillRect(-1,4,2,3);
+    }
+    ctx.restore();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  HP BAR + FLASH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function drawHpBar(x, y, w, h, current, max, isPlayer) {
+    const ratio = Math.max(0, current/max);
+    const fill  = isPlayer ? (ratio>0.5?C.hpBarPlayer:ratio>0.25?C.hpBarWarn:C.hpBarDanger) : C.hpBarZombie;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle  = C.hpBarBg; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle  = fill; ctx.fillRect(x+1, y+1, Math.max(0,Math.floor((w-2)*ratio)), h-2);
+    ctx.font = `${Math.floor(h*1.05)}px VT323, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ccffcc';
+    ctx.fillText(`${current} / ${max}`, x+w/2, y+h/2+1);
+}
+
+function hitFlashAlpha(flashAt, now) {
+    const e = now - flashAt;
+    if (e >= CC.flashDurationMs) return 0;
+    return (1 - e/CC.flashDurationMs) * 0.85;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  LOOT POPUP TOAST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const popup = { _timer: null };
+
+function showPopup(title, subtitle, color) {
+    const el = document.getElementById('loot-popup');
+    const titleEl = document.getElementById('loot-title');
+    const subEl   = document.getElementById('loot-sub');
+    titleEl.textContent = title;
+    titleEl.style.color = color;
+    subEl.textContent   = subtitle;
+    el.style.borderColor  = color;
+    el.style.boxShadow    = `0 0 14px ${color}66`;
+    el.classList.add('visible');
+    clearTimeout(popup._timer);
+    popup._timer = setTimeout(() => el.classList.remove('visible'), CK.popupDurationMs);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PANEL BORDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function drawPanelBorder(PX, PY, PW, PH, borderColor, glowColor) {
+    const bc = borderColor || C.combatBorder;
+    const gc = glowColor   || C.combatBorderGlow;
+    const ck = 16;
+    ctx.strokeStyle = bc; ctx.lineWidth = 2;
+    ctx.shadowColor = gc; ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(PX+ck,PY);       ctx.lineTo(PX,PY);       ctx.lineTo(PX,PY+ck);
+    ctx.moveTo(PX+PW-ck,PY);    ctx.lineTo(PX+PW,PY);    ctx.lineTo(PX+PW,PY+ck);
+    ctx.moveTo(PX,PY+PH-ck);    ctx.lineTo(PX,PY+PH);    ctx.lineTo(PX+ck,PY+PH);
+    ctx.moveTo(PX+PW,PY+PH-ck); ctx.lineTo(PX+PW,PY+PH); ctx.lineTo(PX+PW-ck,PY+PH);
+    ctx.stroke();
+    ctx.lineWidth = 1; ctx.setLineDash([4,7]);
+    ctx.beginPath();
+    ctx.moveTo(PX+ck+4,PY);    ctx.lineTo(PX+PW-ck-4,PY);
+    ctx.moveTo(PX+ck+4,PY+PH); ctx.lineTo(PX+PW-ck-4,PY+PH);
+    ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur = 0;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  MAZE RENDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderMaze(maze, player, zombies, chests, now) {
+    ctx.fillStyle = C.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const isExit = (c,r) => c === maze.exitCol && r === maze.exitRow;
+
+    ctx.shadowBlur = 0;
+    for (const row of maze.grid) {
+        for (const cell of row) {
+            const { x, y } = cellOrigin(cell.col, cell.row);
+            const isSt = cell.col===0 && cell.row===0;
+            const isEx = isExit(cell.col, cell.row);
+            if      (isSt)           ctx.fillStyle = C.cellStart;
+            else if (isEx)           ctx.fillStyle = C.cellExit;
+            else if (cell.isDeadEnd) ctx.fillStyle = C.cellDeadEnd;
+            else                     ctx.fillStyle = C.cellDefault;
+            ctx.fillRect(x, y, CS, CS);
+        }
+    }
+
+    ctx.lineWidth = C.wallWidth; ctx.strokeStyle = C.wall;
+    ctx.shadowColor = C.wallGlow; ctx.shadowBlur = C.wallGlowBlur;
+    ctx.lineCap = 'square';
+    for (const row of maze.grid) {
+        for (const cell of row) {
+            const { x, y } = cellOrigin(cell.col, cell.row);
+            ctx.beginPath();
+            if (cell.walls.N) { ctx.moveTo(x,y);    ctx.lineTo(x+CS,y);    }
+            if (cell.walls.S) { ctx.moveTo(x,y+CS);  ctx.lineTo(x+CS,y+CS); }
+            if (cell.walls.E) { ctx.moveTo(x+CS,y);  ctx.lineTo(x+CS,y+CS); }
+            if (cell.walls.W) { ctx.moveTo(x,y);     ctx.lineTo(x,y+CS);    }
+            ctx.stroke();
+        }
+    }
+
+    ctx.shadowBlur = 10;
+    const lfs = Math.max(9, Math.floor(CS*0.21));
+    ctx.font = `${lfs}px VT323, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    { const { x, y } = cellOrigin(0, 0);
+      ctx.fillStyle = C.labelStart; ctx.shadowColor = C.labelStart;
+      ctx.fillText('START', x+CS/2, y+CS*0.78); }
+    { const { x, y } = cellOrigin(maze.exitCol, maze.exitRow);
+      drawExitDoor(x+CS/2, y+CS*0.4, CS/60, player.hasKey, now);
+      ctx.font = `${lfs}px VT323, monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = player.hasKey ? C.labelExit : '#ff4444';
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+      ctx.fillText(player.hasKey ? 'EXIT' : 'LOCKED', x+CS/2, y+CS*0.84); }
+
+    const spriteScale = CS/60;
+    ctx.shadowColor = C.chestGlow; ctx.shadowBlur = C.chestGlowBlur;
+    for (const [, chest] of chests) {
+        const { x, y } = cellOrigin(chest.col, chest.row);
+        drawChestSprite(x+CS/2, y+CS/2, spriteScale);
+    }
+
+    ctx.shadowColor = C.zombieGlow; ctx.shadowBlur = C.zombieGlowBlur;
+    for (const [, z] of zombies) {
+        const { x, y } = cellOrigin(z.col, z.row);
+        drawZombieSprite(x+CS/2, y+CS/2+2*spriteScale, spriteScale, 0);
+        ctx.shadowBlur = 0;
+        const bW=CS-12, bX=x+6, bY=y+3;
+        ctx.fillStyle = C.countdownBarBg; ctx.fillRect(bX, bY, bW, 4);
+        ctx.fillStyle = z.hp/z.maxHp > 0.5 ? '#773300' : '#cc1100';
+        ctx.fillRect(bX, bY, Math.max(0,Math.floor(bW*(z.hp/z.maxHp))), 4);
+        ctx.shadowColor = C.zombieGlow; ctx.shadowBlur = C.zombieGlowBlur;
+    }
+
+    ctx.shadowBlur = 0;
+    const vp = getPlayerVisualPos(now);
+    const vpx = PAD + vp.col*CS, vpy = PAD + vp.row*CS;
+    drawCharacterSprite(gameConfig.character, player.facing, vpx+CS/2, vpy+CS/2, CS*1.15, 0);
+
+    renderFog(vp);
+    drawSparkles(now);
+    drawLevelUpNotif(now);
+    drawExterminatorNotif(now);
+    ctx.shadowBlur = 0;
+}
+
+function drawHpCorner(player) {
+    const bW=86, bH=9, edge=PAD+4;
+    const bX=canvas.width-edge-bW, bY=edge+1;
+    const ratio = player.hp/player.maxHp;
+    const fill  = ratio>0.5?C.hpBarPlayer:ratio>0.25?C.hpBarWarn:C.hpBarDanger;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(bX-22, bY-2, bW+24, bH+16);
+    ctx.font = '13px VT323, monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#2a5a2a'; ctx.fillText('HP', bX-3, bY);
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(bX, bY, bW, bH);
+    ctx.fillStyle = fill; ctx.fillRect(bX+1, bY+1, Math.max(0,Math.floor((bW-2)*ratio)), bH-2);
+    ctx.font = '12px VT323, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = fill; ctx.fillText(`${player.hp} / ${player.maxHp}`, bX+bW/2, bY+bH+2);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  FOG OF WAR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function getVisionRadius() {
+    const torchBonus = [0, 0.5, 1.5, 3.0][player.torchTier] || 0;
+    return Math.min(5.0, 1.0 + mazeZombiesKilledCount * 0.33 + torchBonus);
+}
+
+function updateFogVisited() {
+    if (!currentMaze) return;
+    const vr = getVisionRadius();
+    const range = Math.ceil(vr) + 1;
+    for (let dc = -range; dc <= range; dc++) {
+        for (let dr = -range; dr <= range; dr++) {
+            if (Math.sqrt(dc*dc + dr*dr) <= vr + 0.5) {
+                const nc = player.col + dc, nr = player.row + dr;
+                if (nc >= 0 && nc < currentMaze.size && nr >= 0 && nr < currentMaze.size)
+                    fogVisited.add(`${nc},${nr}`);
+            }
+        }
+    }
+}
+
+function ensureFogCanvas() {
+    if (!fogCanvas || fogCanvas.width !== canvas.width || fogCanvas.height !== canvas.height) {
+        fogCanvas = document.createElement('canvas');
+        fogCanvas.width  = canvas.width;
+        fogCanvas.height = canvas.height;
+        fogCtx = fogCanvas.getContext('2d');
+    }
+}
+
+function renderFog(vp) {
+    ensureFogCanvas();
+    fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+
+    for (const row of currentMaze.grid) {
+        for (const cell of row) {
+            const { x, y } = cellOrigin(cell.col, cell.row);
+            fogCtx.fillStyle = fogVisited.has(`${cell.col},${cell.row}`)
+                ? 'rgba(0,0,0,0.75)'
+                : 'rgba(0,0,0,0.97)';
+            fogCtx.fillRect(x, y, CS, CS);
+        }
+    }
+
+    const vr    = getVisionRadius();
+    const px    = PAD + (vp.col + 0.5) * CS;
+    const py    = PAD + (vp.row + 0.5) * CS;
+    const innerR = vr * CS;
+    const outerR = (vr + 0.5) * CS;
+    fogCtx.globalCompositeOperation = 'destination-out';
+    const grad = fogCtx.createRadialGradient(px, py, innerR, px, py, outerR);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    fogCtx.fillStyle = grad;
+    fogCtx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+    fogCtx.globalCompositeOperation = 'source-over';
+
+    ctx.drawImage(fogCanvas, 0, 0);
+}
+
+function drawSaveFlash(now) {
+    const elapsed = now - saveFlash.shownAt;
+    if (elapsed >= saveFlash.duration) return;
+    const alpha = elapsed < 1400 ? 0.9 : 0.9 * (1 - (elapsed - 1400) / 400);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = '15px VT323, monospace';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#88ffaa'; ctx.shadowColor = '#00ff41'; ctx.shadowBlur = 8;
+    ctx.fillText('SAVED', canvas.width - 6, canvas.height - 6);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  COMBAT OVERLAY — multi-mode dispatcher
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderCombat(player, combat, now) {
+    const PW=494, PH=470;
+    const PX=Math.floor((canvas.width-PW)/2);
+    const PY=Math.floor((canvas.height-PH)/2);
+
+    ctx.fillStyle = C.combatOverlay; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle  = C.combatPanel; ctx.fillRect(PX, PY, PW, PH);
+
+    const tc = TIER_CONFIG[gameConfig.playerTier];
+    drawPanelBorder(PX, PY, PW, PH, tc.color, tc.glow);
+
+    ctx.font = '30px VT323, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = tc.color; ctx.shadowColor = tc.glow; ctx.shadowBlur = 12;
+    ctx.fillText('☠  COMBAT  ☠', PX+PW/2, PY+26); ctx.shadowBlur = 0;
+
+    ctx.strokeStyle='#0a1a0a'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(PX+18,PY+46); ctx.lineTo(PX+PW-18,PY+46); ctx.stroke();
+
+    const avatarY=PY+118, pAvatX=PX+110, zAvatX=PX+PW-110, aScale=1.85;
+    const pFlash=hitFlashAlpha(combat.playerFlashAt,now);
+    const zFlash=hitFlashAlpha(combat.zombieFlashAt,now);
+
+    ctx.shadowColor=C.playerGlow; ctx.shadowBlur=18;
+    drawPlayerAvatar(pAvatX, avatarY, aScale, pFlash); ctx.shadowBlur=0;
+    ctx.font='26px VT323, monospace'; ctx.fillStyle='#1a341a';
+    ctx.fillText('VS', PX+PW/2, avatarY);
+    ctx.shadowColor=C.zombieGlow; ctx.shadowBlur=C.zombieGlowBlur;
+    drawZombieSprite(zAvatX, avatarY, aScale, zFlash); ctx.shadowBlur=0;
+
+    const barW=160, barH=20, barY=PY+182;
+    drawHpBar(pAvatX-barW/2, barY, barW, barH, player.hp,        player.maxHp,        true);
+    drawHpBar(zAvatX-barW/2, barY, barW, barH, combat.zombie.hp, combat.zombie.maxHp, false);
+
+    const nameY=barY+barH+12;
+    const effDmg=Math.max(1,run.zombieDmg-player.armorLevel);
+    const dmgLabel=player.armorLevel>0?`${run.zombieDmg} DMG  (-${player.armorLevel} ARM)`:`${run.zombieDmg} DMG`;
+    ctx.font='18px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#aaddaa'; ctx.fillText('PLAYER', pAvatX, nameY);
+    ctx.fillStyle='#558844'; ctx.fillText(player.weapon.name.toUpperCase(), pAvatX, nameY+19);
+    ctx.fillStyle='#cc7744'; ctx.fillText('ZOMBIE', zAvatX, nameY);
+    ctx.fillStyle=effDmg<run.zombieDmg?'#557766':'#664433';
+    ctx.fillText(dmgLabel, zAvatX, nameY+19);
+
+    const cdW=258, cdH=8;
+    const cdX=PX+Math.floor((PW-cdW)/2);
+    const cdY=nameY+38;
+    const attackMs = TIER_CONFIG[gameConfig.playerTier].attackMs;
+    const cdRatio=Math.min(1,Math.max(0,(combat.zombieNextAt-now)/attackMs));
+    ctx.font='13px VT323, monospace'; ctx.fillStyle='#4a1800'; ctx.textAlign='center';
+    ctx.fillText('▼  ZOMBIE ATTACKS  ▼', PX+PW/2, cdY-8);
+    ctx.fillStyle=C.countdownBarBg; ctx.fillRect(cdX, cdY, cdW, cdH);
+    ctx.fillStyle=C.countdownBar; ctx.fillRect(cdX+1, cdY+1, Math.floor((cdW-2)*cdRatio), cdH-2);
+
+    // Stagger flash
+    const staggerElapsed = now - staggerFlash.shownAt;
+    if (staggerElapsed < staggerFlash.duration) {
+        const sa = staggerElapsed < 300 ? 1 : 1-(staggerElapsed-300)/500;
+        ctx.save(); ctx.globalAlpha = Math.max(0, sa);
+        ctx.font='20px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#00ffcc'; ctx.shadowColor='#00ffcc'; ctx.shadowBlur=14;
+        ctx.fillText('STAGGERED!', PX+PW/2, cdY-28); ctx.shadowBlur=0;
+        ctx.restore();
+    }
+
+    const challengeY = cdY + cdH + 12;
+
+    const mode = gameConfig.learningMode;
+    if (mode === 'TYPING')  renderTypingChallenge(combat, now, PX, PW, challengeY);
+    else if (mode === 'MATH')    renderMathChallenge(combat, now, PX, PW, challengeY);
+    else if (mode === 'COLOR')   renderColorChallenge(combat, now, PX, PW, challengeY, PY, PH);
+
+    // Chicken button
+    combat.chickenRect = null;
+    if (player.chickens > 0) {
+        const bW=200, bH=26, bX=PX+PW-bW-10, bY=PY+PH-bH-10;
+        ctx.fillStyle='rgba(30,20,0,0.9)'; ctx.fillRect(bX, bY, bW, bH);
+        ctx.strokeStyle='#ffcc44'; ctx.lineWidth=1;
+        ctx.strokeRect(bX+0.5, bY+0.5, bW-1, bH-1);
+        ctx.font='13px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ffcc44';
+        ctx.fillText(`🐔 Use Chicken (${player.chickens})`, bX+bW/2, bY+bH/2);
+        combat.chickenRect = { x:bX, y:bY, w:bW, h:bH };
+    }
+}
+
+function renderTypingChallenge(combat, now, PX, PW, startY) {
+    const tier = gameConfig.playerTier;
+    const fontSize = TIER_CONFIG[tier].fontSize;
+    const wordY = startY + 28;
+    const word   = combat.word  || '';
+    const typed  = combat.typed || '';
+    const wrongFlash = hitFlashAlpha(combat.wrongFlashAt, now);
+
+    ctx.font = `${fontSize}px VT323, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+    if (wrongFlash > 0) {
+        ctx.fillStyle = `rgba(255,60,60,${Math.min(1,wrongFlash)})`;
+        ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 14;
+        ctx.fillText(word, PX+PW/2, wordY);
+        ctx.shadowBlur = 0;
+    } else {
+        const totalW = ctx.measureText(word).width;
+        const startX = PX+PW/2 - totalW/2;
+        const charW  = word.length > 0 ? totalW / word.length : 0;
+        for (let i = 0; i < word.length; i++) {
+            const cx = startX + (i + 0.5) * charW;
+            if (i < typed.length) {
+                ctx.fillStyle='#00ee77'; ctx.shadowColor='#00ff88'; ctx.shadowBlur=8;
+            } else if (i === typed.length) {
+                const pulse2 = 0.75+0.25*Math.sin(now*0.008);
+                ctx.fillStyle=`rgba(255,255,255,${pulse2})`; ctx.shadowColor='#aaffaa'; ctx.shadowBlur=6;
+            } else {
+                ctx.fillStyle='#2a3a2a'; ctx.shadowBlur=0;
+            }
+            ctx.fillText(word[i], cx, wordY);
+        }
+        ctx.shadowBlur=0;
+    }
+
+    const inputY = wordY + Math.ceil(fontSize / 2) + 72;
+    ctx.font='22px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#1a2a1a';
+    ctx.fillRect(PX+PW/2-120, inputY-12, 240, 24);
+    ctx.strokeStyle='#1f3a1f'; ctx.lineWidth=1;
+    ctx.strokeRect(PX+PW/2-120, inputY-12, 240, 24);
+    if (typed.length > 0) {
+        ctx.fillStyle = wrongFlash>0 ? `rgba(255,80,80,${wrongFlash})` : '#00cc55';
+        ctx.fillText(typed + (Math.floor(now/280)%2===0?'_':''), PX+PW/2, inputY);
+    } else {
+        ctx.fillStyle='#2a402a';
+        ctx.fillText(Math.floor(now/280)%2===0?'_':'', PX+PW/2, inputY);
+    }
+
+    const logY = inputY + 28;
+    ctx.font='17px VT323, monospace'; ctx.fillStyle='#55bb55';
+    ctx.shadowColor='#00aa33'; ctx.shadowBlur=4;
+    ctx.fillText(combat.log, PX+PW/2, logY); ctx.shadowBlur=0;
+}
+
+function renderMathChallenge(combat, now, PX, PW, startY) {
+    const wrongFlash = hitFlashAlpha(combat.mathWrongAt, now);
+    const cx = PX + PW/2;
+
+    ctx.font='46px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    if (wrongFlash > 0) {
+        ctx.fillStyle=`rgba(255,60,60,${wrongFlash})`; ctx.shadowColor='#ff0000'; ctx.shadowBlur=14;
+    } else {
+        ctx.fillStyle='#ccffcc'; ctx.shadowColor='#00ff88'; ctx.shadowBlur=8;
+    }
+    ctx.fillText(combat.mathProblem, cx, startY+28); ctx.shadowBlur=0;
+
+    const inputY = startY + 68;
+    ctx.fillStyle='#1a2a1a';
+    ctx.fillRect(cx-80, inputY-14, 160, 28);
+    ctx.strokeStyle='#1f3a1f'; ctx.lineWidth=1;
+    ctx.strokeRect(cx-80, inputY-14, 160, 28);
+    ctx.font='24px VT323, monospace'; ctx.textBaseline='middle';
+    const disp = combat.mathTyped + (Math.floor(now/280)%2===0?'_':'');
+    ctx.fillStyle = wrongFlash>0 ? `rgba(255,80,80,${wrongFlash})` : '#00cc55';
+    ctx.fillText(disp.length > 0 ? disp : (Math.floor(now/280)%2===0?'_':''), cx, inputY);
+
+    ctx.font='14px VT323, monospace'; ctx.fillStyle='#446644';
+    ctx.fillText('TYPE ANSWER  +  ENTER', cx, inputY+28);
+    ctx.font='17px VT323, monospace'; ctx.fillStyle='#55bb55';
+    ctx.fillText(combat.log, cx, inputY+50);
+}
+
+function renderColorChallenge(combat, now, PX, PW, startY, PY, PH) {
+    if (!combat.colorChallenge) return;
+    const ch = combat.colorChallenge;
+    const cx = PX + PW/2;
+    const wrongFlash = hitFlashAlpha(combat.colorWrongAt, now);
+
+    // Draw swatch or Stroop word
+    if (ch.type === 'SWATCH') {
+        const sw = 60, sh = 36;
+        ctx.fillStyle = ch.swatchColor;
+        ctx.shadowColor = ch.swatchColor; ctx.shadowBlur = wrongFlash>0 ? 0 : 12;
+        ctx.fillRect(cx-sw/2, startY+4, sw, sh); ctx.shadowBlur=0;
+        ctx.font='14px VT323, monospace'; ctx.fillStyle='#446644';
+        ctx.fillText('CLICK THE NAME OF THIS COLOR', cx, startY+sh+20);
+    } else {
+        // Stroop / shape
+        const prompt = ch.prompt || 'CLICK THE INK COLOR';
+        const displayWord = ch.displayWord || '';
+        const inkCss = ch.inkCss || '#ffffff';
+        ctx.font='44px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        if (wrongFlash > 0) {
+            ctx.fillStyle=`rgba(255,60,60,${wrongFlash})`; ctx.shadowBlur=0;
+        } else {
+            ctx.fillStyle = inkCss; ctx.shadowColor = inkCss; ctx.shadowBlur=10;
+        }
+        ctx.fillText(displayWord, cx, startY+26); ctx.shadowBlur=0;
+        ctx.font='14px VT323, monospace'; ctx.fillStyle='#446644';
+        ctx.fillText(prompt, cx, startY+52);
+    }
+
+    // Buttons
+    const opts = ch.options;
+    const numOpts = opts.length;
+    const btnW = Math.floor((PW - 40) / numOpts) - 6;
+    const btnH = 34;
+    const btnRowY = startY + 66;
+    const totalBtnW = numOpts*(btnW+6) - 6;
+    const btnStartX = PX + Math.floor((PW-totalBtnW)/2);
+
+    combat.colorButtons = [];
+    for (let i=0; i<numOpts; i++) {
+        const bx = btnStartX + i*(btnW+6);
+        const isCorrect = opts[i].correct;
+        const cssColor = COLOR_DATA[opts[i].word] || '#888888';
+        ctx.fillStyle = wrongFlash>0 && isCorrect ? `rgba(255,60,60,0.3)` : 'rgba(0,20,0,0.85)';
+        ctx.fillRect(bx, btnRowY, btnW, btnH);
+        ctx.strokeStyle = cssColor; ctx.lineWidth = 2;
+        ctx.shadowColor = cssColor; ctx.shadowBlur = 6;
+        ctx.strokeRect(bx+1, btnRowY+1, btnW-2, btnH-2); ctx.shadowBlur=0;
+        // Color swatch strip
+        ctx.fillStyle = cssColor;
+        ctx.fillRect(bx+2, btnRowY+2, 8, btnH-4);
+        ctx.font='15px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ccffcc';
+        ctx.fillText(opts[i].word, bx+btnW/2+5, btnRowY+btnH/2);
+        combat.colorButtons.push({x:bx, y:btnRowY, w:btnW, h:btnH, correct:isCorrect});
+    }
+
+    ctx.font='17px VT323, monospace'; ctx.fillStyle='#55bb55'; ctx.textAlign='center';
+    ctx.fillText(combat.log, PX+PW/2, btnRowY+btnH+20);
+}
+
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  BATTLE PREP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderBattlePrep(now) {
+    const elapsed = now - battlePrep.startedAt;
+    ctx.fillStyle='rgba(0,0,0,0.68)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2, cy=canvas.height/2;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+
+    ctx.font='22px VT323, monospace'; ctx.fillStyle='#cc4444';
+    ctx.shadowColor='#ff0000'; ctx.shadowBlur=8;
+    ctx.fillText('☠  ZOMBIE INCOMING  ☠', cx, cy-80); ctx.shadowBlur=0;
+
+    const tc = TIER_CONFIG[gameConfig.playerTier];
+    ctx.font='14px VT323, monospace'; ctx.fillStyle=tc.color;
+    ctx.fillText(tc.name.toUpperCase() + '  |  ' + (LEARNING_MODES.find(m=>m.id===gameConfig.learningMode)||LEARNING_MODES[0]).label.toUpperCase(), cx, cy-58);
+
+    if (elapsed < 3000) {
+        const count = 3 - Math.min(2, Math.floor(elapsed / 1000));
+        const phase = elapsed % 1000;
+        const scale = phase < 150 ? 1+(1-phase/150)*0.5 : 1;
+        const alpha = phase > 750 ? 1-(phase-750)/250 : 1;
+        const cols = ['#ffdd00','#ffaa00','#ff4400'];
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx,-cy);
+        ctx.font='110px VT323, monospace';
+        const col = cols[3-count] || '#ffdd00';
+        ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=40*alpha;
+        ctx.fillText(String(count), cx, cy+10); ctx.shadowBlur=0;
+        ctx.restore();
+    } else {
+        const fElapsed = elapsed - 3000;
+        const falpha = fElapsed < 150 ? fElapsed/150 : Math.max(0,1-(fElapsed-150)/350);
+        ctx.save(); ctx.globalAlpha=falpha;
+        ctx.font='72px VT323, monospace'; ctx.fillStyle='#00ff88';
+        ctx.shadowColor='#00ff88'; ctx.shadowBlur=28;
+        ctx.fillText('FIGHT!', cx, cy+10); ctx.shadowBlur=0;
+        ctx.restore();
+    }
+
+    // Key holder can't be skipped — otherwise the level could never be finished
+    battlePrep.repellentRect = null;
+    if (battlePrep.zombie && battlePrep.zombie.hasKey) {
+        ctx.font='20px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ffdd44'; ctx.shadowColor='#ffaa00'; ctx.shadowBlur=10;
+        ctx.fillText('🗝️ This zombie is carrying the EXIT KEY!', cx, cy+84); ctx.shadowBlur=0;
+    } else if (player.repellents > 0) {
+        const bW=200, bH=28, bX=cx-100, bY=cy+70;
+        ctx.fillStyle='rgba(20,40,60,0.9)'; ctx.fillRect(bX, bY, bW, bH);
+        ctx.strokeStyle='#88ddff'; ctx.lineWidth=1;
+        ctx.strokeRect(bX+0.5, bY+0.5, bW-1, bH-1);
+        ctx.font='14px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#88ddff';
+        ctx.fillText(`🧴 Use Repellent (${player.repellents})`, cx, bY+bH/2);
+        battlePrep.repellentRect = { x:bX, y:bY, w:bW, h:bH };
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  LEVEL COMPLETE  (enhanced)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderLevelComplete(now) {
+    ctx.fillStyle='rgba(0,0,0,0.86)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2, cy=canvas.height/2;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='62px VT323, monospace'; ctx.fillStyle=C.levelComplete;
+    ctx.shadowColor=C.levelComplete; ctx.shadowBlur=24;
+    ctx.fillText(`LEVEL ${run.level}`, cx, cy-80);
+    ctx.font='44px VT323, monospace'; ctx.fillText('COMPLETE', cx, cy-30); ctx.shadowBlur=0;
+
+    ctx.font='18px VT323, monospace'; ctx.fillStyle='#446644';
+    ctx.fillText('the maze crumbles behind you...', cx, cy+6);
+
+    const e=levelCompleteData.elapsed, sb=levelCompleteData.speedBonus;
+    const tStr = e<60 ? `${Math.floor(e)}s` : `${Math.floor(e/60)}m ${Math.floor(e%60)}s`;
+    ctx.font='17px VT323, monospace';
+    if (sb>0) {
+        ctx.fillStyle='#ccaa33'; ctx.shadowColor='#ccaa33'; ctx.shadowBlur=6;
+        ctx.fillText(`TIME: ${tStr}  ·  SPEED BONUS: +${sb}G`, cx, cy+26); ctx.shadowBlur=0;
+    } else {
+        ctx.fillStyle='#4a5a4a'; ctx.fillText(`TIME: ${tStr}`, cx, cy+26);
+    }
+
+    if (levelCompleteData.xpGained > 0) {
+        ctx.font='16px VT323, monospace'; ctx.fillStyle='#7799ff';
+        ctx.shadowColor='#7799ff'; ctx.shadowBlur=5;
+        let xpLine = `+${levelCompleteData.xpGained} XP`;
+        if (levelCompleteData.levelsGained > 0)
+            xpLine += `  ·  LEVEL UP! NOW LVL ${player.playerLevel}`;
+        ctx.fillText(xpLine, cx, cy+44); ctx.shadowBlur=0;
+    }
+
+    const extraOff = levelCompleteData.allZombiesKilled ? 18 : 0;
+    if (levelCompleteData.allZombiesKilled) {
+        ctx.font='17px VT323, monospace'; ctx.fillStyle='#ff8833';
+        ctx.shadowColor='#ff4400'; ctx.shadowBlur=5;
+        ctx.fillText('🧟 Exterminator Bonus: +40g +25 XP', cx, cy+62); ctx.shadowBlur=0;
+    }
+
+    ctx.font='15px VT323, monospace'; ctx.fillStyle=C.difficultyWarn;
+    ctx.fillText(
+        `NEXT: LEVEL ${nextLevel.level}  ·  GRID ${nextLevel.gridSize}x${nextLevel.gridSize}  ·  ZOMBIE HP +${nextLevel.zombieHp-run.zombieHp}`,
+        cx, cy+62+extraOff
+    );
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    const bW=300, bH=34, bX=cx-150, bY=cy+82+extraOff;
+    ctx.fillStyle='rgba(0,12,0,0.9)'; ctx.fillRect(bX,bY,bW,bH);
+    ctx.strokeStyle=`rgba(0,255,65,${pulse})`; ctx.lineWidth=1;
+    ctx.strokeRect(bX+0.5,bY+0.5,bW-1,bH-1);
+    ctx.font='22px VT323, monospace'; ctx.fillStyle=`rgba(0,255,65,${pulse})`;
+    ctx.shadowColor='#00ff41'; ctx.shadowBlur=pulse*10;
+    ctx.fillText('[ ENTER ]  VISIT THE SHOP', cx, bY+bH/2); ctx.shadowBlur=0;
+    uiRects.levelCompleteShop = {x:bX, y:bY, w:bW, h:bH};
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  UPGRADE SHOP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function getWeaponTierIndex() {
+    const idx = WEAPONS.findIndex(w => w.name === player.weapon.name);
+    return idx >= 0 ? idx : 0;
+}
+function getNextWeapon() {
+    const t = getWeaponTierIndex();
+    return t < WEAPONS.length - 1 ? WEAPONS[t + 1] : null;
+}
+
+function weaponTierState(i) {
+    const cur = getWeaponTierIndex();
+    if (i < cur)  return 'owned';
+    if (i === cur) return 'current';
+    if (i === cur + 1) {
+        const w = WEAPONS[i];
+        if (player.playerLevel < w.level) return 'locked_level';
+        return player.gold >= w.cost ? 'buyable' : 'locked_cost';
+    }
+    return 'future';
+}
+function armorTierState(i) {
+    if (i < player.armorTier)  return 'owned';
+    if (i === player.armorTier) return 'current';
+    if (i === player.armorTier + 1) {
+        const a = ARMORS[i];
+        if (player.playerLevel < a.level) return 'locked_level';
+        return player.gold >= a.cost ? 'buyable' : 'locked_cost';
+    }
+    return 'future';
+}
+
+function buildShopItems() {
+    const wt = getWeaponTierIndex();
+    let weapItem;
+    if (wt >= WEAPONS.length - 1) {
+        weapItem = { idx:0, icon:'>', label:'WEAPON', name: player.weapon.name,
+                     desc:`${player.weapon.damage} DMG  (tier ${wt+1}/${WEAPONS.length})`,
+                     status:'maxed', cost:0, levelReq:0 };
+    } else {
+        const nw = WEAPONS[wt+1];
+        const st = weaponTierState(wt+1);
+        weapItem = { idx:0, icon:'>', label:'WEAPON', name: nw.name,
+                     desc:`${nw.damage} DMG  (now: ${player.weapon.name} ${player.weapon.damage}dmg)`,
+                     status: st==='locked_level'?'locked_level':st==='locked_cost'?'locked_cost':'buyable',
+                     cost:nw.cost, levelReq:nw.level };
+    }
+    const at = player.armorTier;
+    let armItem;
+    if (at >= ARMORS.length - 1) {
+        armItem = { idx:1, icon:'[', label:'ARMOR', name: ARMORS[at].name,
+                    desc:`-${ARMORS[at].defense} DEF  (tier ${at+1}/${ARMORS.length})`,
+                    status:'maxed', cost:0, levelReq:0 };
+    } else {
+        const na = ARMORS[at+1];
+        const st = armorTierState(at+1);
+        armItem = { idx:1, icon:'[', label:'ARMOR', name: na.name,
+                    desc:`-${na.defense} DEF  (now: ${ARMORS[at].name} -${ARMORS[at].defense}def)`,
+                    status: st==='locked_level'?'locked_level':st==='locked_cost'?'locked_cost':'buyable',
+                    cost:na.cost, levelReq:na.level };
+    }
+    const potFull = player.potions >= 5;
+    const potItem = { idx:2, icon:'+', label:'POTION', name:'Health Potion',
+                      desc:`Restores 20 HP  ·  Have: ${player.potions}/5`,
+                      status: potFull?'maxed':player.gold<20?'locked_cost':'buyable',
+                      cost:20, levelReq:1 };
+    const hpItem  = { idx:3, icon:'^', label:'MAX HP', name:'Max HP Upgrade',
+                      desc:`+10 max HP  ·  Currently: ${player.maxHp} HP`,
+                      status: player.gold<60?'locked_cost':'buyable',
+                      cost:60, levelReq:1 };
+    return [weapItem, armItem, potItem, hpItem];
+}
+
+function hasMadePurchase() {
+    if (!shopUi.snapshot) return false;
+    const s = shopUi.snapshot;
+    return (player.gold !== s.gold || player.weapon.name !== s.weaponName ||
+            player.armorTier !== s.armorTier || player.potions !== s.potions ||
+            player.maxHp !== s.maxHp || player.chickens !== s.chickens ||
+            player.repellents !== s.repellents || player.rabbitFeet !== s.rabbitFeet ||
+            player.torchTier !== s.torchTier);
+}
+
+function shopNavNext(cur) {
+    const items = buildShopItems();
+    let n = (cur+1)%4, tries=0;
+    while (items[n].status==='locked_level' && tries<4) { n=(n+1)%4; tries++; }
+    return n;
+}
+function shopNavPrev(cur) {
+    const items = buildShopItems();
+    let n = (cur+3)%4, tries=0;
+    while (items[n].status==='locked_level' && tries<4) { n=(n+3)%4; tries++; }
+    return n;
+}
+
+function applyOopsReset() {
+    if (!shopUi.snapshot) return;
+    const s = shopUi.snapshot;
+    shopUi.goldFlashFrom = player.gold;
+    player.gold = s.gold;
+    player.weapon.name = s.weaponName; player.weapon.damage = s.weaponDamage;
+    player.armorTier = s.armorTier; player.armorLevel = s.armorLevel;
+    player.potions = s.potions; player.maxHp = s.maxHp; player.hp = s.hp;
+    player.playerLevel = s.playerLevel; player.xp = s.xp;
+    player.chickens = s.chickens; player.repellents = s.repellents;
+    player.rabbitFeet = s.rabbitFeet; player.torchTier = s.torchTier;
+    shopUi.goldFlashAt = performance.now();
+    shopUi.oopsFlashAt = performance.now();
+    shopUi.oopsConfirm = false;
+    syncHpHud(); syncGoldHud(); syncPotionsHud(); syncPlayerLevelHud(); syncXpHud();
+    syncWeaponHud(); syncArmorHud();
+    saveGame();
+}
+
+// Shop palette: plain black background, high-contrast text so prices are easy to read
+const SHOP = {
+    bg:        '#000000',
+    card:      '#0e0e0e',
+    cardHi:    '#1c1c1c',
+    line:      '#444444',
+    text:      '#ffffff',
+    subtext:   '#cccccc',
+    dim:       '#999999',
+    gold:      '#ffdd44',
+    good:      '#44ff88',
+    bad:       '#ff6666',
+};
+
+// Draws text, shrinking the font until it fits within maxW
+function fillFit(text, x, y, maxW, size, minSize) {
+    let s = size;
+    ctx.font = `${s}px VT323, monospace`;
+    while (s > (minSize || 12) && ctx.measureText(text).width > maxW) {
+        s--; ctx.font = `${s}px VT323, monospace`;
+    }
+    ctx.fillText(text, x, y);
+}
+
+function drawQuadCard(cx, cy, cw, ch, item, highlighted, now) {
+    if (!item) return;
+    const status = item.status;
+    const isLocked  = status === 'locked_level';
+    const isBroke   = status === 'locked_cost';
+    const isMaxed   = status === 'maxed';
+    const isOwned   = status === 'owned';
+    const isBuyable = status === 'buyable';
+    const midX = cx + cw/2;
+    const maxW = cw - 16;
+
+    // Card background + border
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = highlighted ? SHOP.cardHi : SHOP.card;
+    ctx.fillRect(cx, cy, cw, ch);
+    if (highlighted) {
+        ctx.strokeStyle = isBuyable ? SHOP.gold : SHOP.text; ctx.lineWidth = 2;
+        ctx.strokeRect(cx+1, cy+1, cw-2, ch-2);
+    } else {
+        ctx.strokeStyle = isBuyable ? '#8a7520' : SHOP.line; ctx.lineWidth = 1;
+        ctx.strokeRect(cx+0.5, cy+0.5, cw-1, ch-1);
+    }
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+    // Icon
+    ctx.globalAlpha = isLocked ? 0.45 : 1;
+    ctx.font = '34px VT323, monospace';
+    ctx.fillStyle = SHOP.text;
+    ctx.fillText(item.icon, midX, cy + 28);
+    ctx.globalAlpha = 1;
+
+    // Name
+    ctx.fillStyle = isLocked ? SHOP.dim : SHOP.text;
+    fillFit(item.name, midX, cy + 58, maxW, 24, 16);
+
+    // What it does
+    ctx.fillStyle = isLocked ? SHOP.dim : (item.statColor || SHOP.good);
+    fillFit(item.statLine, midX, cy + 82, maxW, 18, 13);
+
+    // How many you have
+    if (item.countLine) {
+        ctx.fillStyle = SHOP.subtext;
+        fillFit(item.countLine, midX, cy + 102, maxW, 17, 13);
+    }
+
+    // Price — the big one
+    const priceY = cy + ch - 46;
+    if (isOwned) {
+        ctx.fillStyle = SHOP.good;
+        fillFit('OWNED', midX, priceY, maxW, 24, 16);
+    } else if (isMaxed) {
+        ctx.fillStyle = SHOP.good;
+        fillFit('MAXED OUT', midX, priceY, maxW, 24, 16);
+    } else {
+        ctx.fillStyle = isLocked ? SHOP.dim : isBroke ? SHOP.bad : SHOP.gold;
+        fillFit(`PRICE: ${item.cost} GOLD`, midX, priceY, maxW, 24, 16);
+    }
+
+    // Status line (bottom)
+    let statusText = '', statusColor = SHOP.subtext;
+    if (isOwned)        { statusText = '✔ You have this'; statusColor = SHOP.good; }
+    else if (isMaxed)   { statusText = '✔ Can\'t carry any more'; statusColor = SHOP.good; }
+    else if (isLocked)  { statusText = '🔒 ' + (item.lockMsg || ('Reach Level ' + item.levelReq)); statusColor = SHOP.dim; }
+    else if (isBroke)   { statusText = `Need ${item.cost - player.gold} more gold`; statusColor = SHOP.bad; }
+    else if (isBuyable) { statusText = highlighted ? 'Press ENTER or click to buy' : 'Click to buy'; statusColor = SHOP.text; }
+    ctx.fillStyle = statusColor;
+    fillFit(statusText, midX, cy + ch - 18, maxW, 18, 13);
+
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+
+function renderOopsConfirm(PX, PY, PW, PH, cx) {
+    ctx.fillStyle='rgba(0,0,0,0.85)';
+    ctx.fillRect(PX, PY, PW, PH);
+    const boxW=380, boxH=140;
+    const boxX=Math.floor(cx-boxW/2), boxY=Math.floor(PY+PH/2-boxH/2);
+    ctx.fillStyle='#000000'; ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.strokeStyle=SHOP.text; ctx.lineWidth=2;
+    ctx.strokeRect(boxX+1, boxY+1, boxW-2, boxH-2);
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='20px VT323, monospace'; ctx.fillStyle=SHOP.text;
+    ctx.fillText('Reset all purchases from this shop visit?', cx, boxY+26);
+    ctx.font='17px VT323, monospace'; ctx.fillStyle=SHOP.subtext;
+    ctx.fillText('Your gold and items go back to how they were.', cx, boxY+52);
+    const btnW=140, btnH=32, btnY=boxY+boxH-btnH-14;
+    const yesX=cx-btnW-8, noX=cx+8;
+    ctx.fillStyle='#1a0000'; ctx.fillRect(yesX, btnY, btnW, btnH);
+    ctx.strokeStyle=SHOP.bad; ctx.lineWidth=1; ctx.strokeRect(yesX+0.5, btnY+0.5, btnW-1, btnH-1);
+    ctx.font='19px VT323, monospace'; ctx.fillStyle=SHOP.bad;
+    ctx.fillText('[Y] Yes, Reset', yesX+btnW/2, btnY+btnH/2);
+    ctx.fillStyle='#111111'; ctx.fillRect(noX, btnY, btnW, btnH);
+    ctx.strokeStyle=SHOP.text; ctx.strokeRect(noX+0.5, btnY+0.5, btnW-1, btnH-1);
+    ctx.fillStyle=SHOP.text;
+    ctx.fillText('[N] Keep Items', noX+btnW/2, btnY+btnH/2);
+    shopUi.confirmYesRect = { x:yesX, y:btnY, w:btnW, h:btnH };
+    shopUi.confirmNoRect  = { x:noX,  y:btnY, w:btnW, h:btnH };
+}
+
+function renderShop(now) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = SHOP.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const PW = Math.min(580, canvas.width - 10);
+    const PH = Math.min(canvas.height - 10, 560);
+    const PX = Math.floor((canvas.width - PW) / 2);
+    const PY = Math.floor((canvas.height - PH) / 2);
+    const cx = PX + PW / 2;
+
+    // ── HEADER ─────────────────────────────────────────
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '30px VT323, monospace'; ctx.fillStyle = SHOP.text;
+    ctx.fillText('THE DEAD END EMPORIUM', cx, PY + 18);
+
+    // Gold/level banner with animated tick
+    const goldElapsed = now - shopUi.goldFlashAt;
+    const GOLD_ANIM = 600;
+    let displayGold = player.gold;
+    if (goldElapsed < GOLD_ANIM && shopUi.goldFlashFrom > player.gold) {
+        displayGold = Math.round(shopUi.goldFlashFrom + (player.gold - shopUi.goldFlashFrom) * (goldElapsed / GOLD_ANIM));
+    }
+    ctx.font = '24px VT323, monospace';
+    ctx.fillStyle = SHOP.gold;
+    ctx.fillText(`YOUR GOLD: ${displayGold}      YOUR LEVEL: ${player.playerLevel}`, cx, PY + 48);
+
+    // ── TAB BAR ────────────────────────────────────────
+    const TABS = [
+        { id:'WEAPONS', label:'⚔️ Weapons' },
+        { id:'ARMOR',   label:'🛡️ Armor'   },
+        { id:'ITEMS',   label:'🎒 Items'   },
+        { id:'UPGRADES',label:'🔦 Lights'  },
+    ];
+    const tabBarY = PY + 68;
+    const tabH = 34;
+    const tabW = Math.floor(PW / TABS.length);
+    shopUi.tabRects = [];
+    for (let ti = 0; ti < TABS.length; ti++) {
+        const tab = TABS[ti];
+        const tx = PX + ti * tabW;
+        const isActive = shopUi.tab === tab.id;
+        ctx.fillStyle = isActive ? '#222222' : SHOP.bg;
+        ctx.fillRect(tx, tabBarY, tabW, tabH);
+        ctx.strokeStyle = SHOP.line; ctx.lineWidth = 1;
+        ctx.strokeRect(tx + 0.5, tabBarY + 0.5, tabW - 1, tabH - 1);
+        if (isActive) { ctx.fillStyle = SHOP.gold; ctx.fillRect(tx + 1, tabBarY + tabH - 4, tabW - 2, 3); }
+        ctx.font = '20px VT323, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = isActive ? SHOP.text : SHOP.dim;
+        ctx.fillText(tab.label, tx + tabW / 2, tabBarY + tabH / 2);
+        shopUi.tabRects.push({ x:tx, y:tabBarY, w:tabW, h:tabH, id:tab.id });
+    }
+
+    // ── QUADRANT GRID ──────────────────────────────────
+    const gridTop    = PY + 110;
+    const gridBottom = PY + PH - 88;
+    const gridH      = gridBottom - gridTop;
+    const cardGap    = 8;
+    const cardW      = Math.floor((PW - 40) / 2);
+    const cardH      = Math.floor((gridH - cardGap) / 2);
+    const cardX0     = PX + 12;
+
+    const cardPositions = [
+        { x: cardX0,                   y: gridTop },
+        { x: cardX0 + cardW + cardGap, y: gridTop },
+        { x: cardX0,                   y: gridTop + cardH + cardGap },
+        { x: cardX0 + cardW + cardGap, y: gridTop + cardH + cardGap },
+    ];
+
+    const items = getTabItems();
+
+    // Pagination arrows (weapons/armor may have >4)
+    const totalItems = (() => {
+        if (shopUi.tab === 'WEAPONS') return WEAPONS.length;
+        if (shopUi.tab === 'ARMOR')   return ARMORS.length;
+        return 4;
+    })();
+    const totalPages = Math.ceil(totalItems / 4);
+    shopUi.prevPageRect = null;
+    shopUi.nextPageRect = null;
+    if (totalPages > 1) {
+        const arrowY = gridTop + gridH / 2;
+        ctx.font = '26px VT323, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = SHOP.gold;
+        if (shopUi.page > 0) {
+            ctx.fillText('◀', PX + 5, arrowY);
+            shopUi.prevPageRect = { x:PX-4, y:arrowY-20, w:18, h:40 };
+        }
+        if (shopUi.page < totalPages - 1) {
+            ctx.fillText('▶', PX + PW - 5, arrowY);
+            shopUi.nextPageRect = { x:PX+PW-14, y:arrowY-20, w:18, h:40 };
+        }
+        ctx.font = '17px VT323, monospace';
+        ctx.fillStyle = SHOP.subtext;
+        ctx.fillText(`Page ${shopUi.page + 1} of ${totalPages}  (click ◀ ▶ or press , .)`, cx, gridBottom + 12);
+    }
+
+    shopUi.cardRects = [];
+    for (let i = 0; i < 4; i++) {
+        const pos = cardPositions[i];
+        const item = items[i] || null;
+        if (item) {
+            drawQuadCard(pos.x, pos.y, cardW, cardH, item, shopUi.selectedCard === i, now);
+            shopUi.cardRects.push({ x:pos.x, y:pos.y, w:cardW, h:cardH, idx:i });
+        }
+    }
+
+    // ── FOOTER ─────────────────────────────────────────
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = SHOP.subtext;
+    fillFit(
+        `Next maze: Level ${nextLevel.level}  ·  ${nextLevel.gridSize}x${nextLevel.gridSize}  ·  ` +
+        `Zombie HP ${nextLevel.zombieHp}  ·  Zombie DMG ${nextLevel.zombieDmg}` +
+        (nextLevel.extraGuards > 0 ? `  ·  +${nextLevel.extraGuards} guard` : ''),
+        cx, PY + PH - 52, PW - 20, 17, 13
+    );
+
+    const btnY = PY + PH - 34;
+    const hasPurchase = hasMadePurchase();
+    const oopsW = 170, oopsH = 30, oopsX = PX + 10;
+    shopUi.oopsRect = { x:oopsX, y:btnY, w:oopsW, h:oopsH };
+    ctx.fillStyle = SHOP.bg;
+    ctx.fillRect(oopsX, btnY, oopsW, oopsH);
+    ctx.strokeStyle = hasPurchase ? SHOP.text : '#333333'; ctx.lineWidth = 1;
+    ctx.strokeRect(oopsX + 0.5, btnY + 0.5, oopsW - 1, oopsH - 1);
+    ctx.font = '19px VT323, monospace';
+    ctx.fillStyle = hasPurchase ? SHOP.text : '#555555';
+    ctx.fillText('↩ Oops! Undo', oopsX + oopsW / 2, btnY + oopsH / 2);
+
+    const nlX = oopsX + oopsW + 12;
+    const nlW = PX + PW - 10 - nlX;
+    const pulse = 0.7 + 0.3 * Math.sin(now * 0.003);
+    shopUi.nextLevelRect = { x:nlX, y:btnY, w:nlW, h:oopsH };
+    ctx.fillStyle = '#0a1a0a'; ctx.fillRect(nlX, btnY, nlW, oopsH);
+    ctx.strokeStyle = `rgba(68,255,136,${pulse})`; ctx.lineWidth = 1.5;
+    ctx.strokeRect(nlX + 0.75, btnY + 0.75, nlW - 1.5, oopsH - 1.5);
+    ctx.font = '20px VT323, monospace';
+    ctx.fillStyle = SHOP.good;
+    ctx.fillText('[ SPACE ]  NEXT MAZE  >', nlX + nlW / 2, btnY + oopsH / 2);
+
+    // "Purchases reset!" flash
+    const oopsFlashElapsed = now - shopUi.oopsFlashAt;
+    if (oopsFlashElapsed < 1800) {
+        const alpha = oopsFlashElapsed < 1400 ? 1 : 1 - (oopsFlashElapsed - 1400) / 400;
+        ctx.font = '18px VT323, monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+        ctx.fillStyle = `rgba(255,221,68,${alpha})`;
+        ctx.fillText('Purchases undone!', PX + PW - 6, PY + 2);
+    }
+
+    // Oops confirm overlay
+    if (shopUi.oopsConfirm) renderOopsConfirm(PX, PY, PW, PH, cx);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  GAME OVER  (enhanced)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderGameOver(now) {
+    ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2, cy=canvas.height/2;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='74px VT323, monospace'; ctx.fillStyle=C.gameOverTitle;
+    ctx.shadowColor='#ff0000'; ctx.shadowBlur=32;
+    ctx.fillText('GAME OVER', cx, cy-72); ctx.shadowBlur=0;
+    ctx.font='26px VT323, monospace'; ctx.fillStyle=C.gameOverText;
+    ctx.fillText(`DIED ON LEVEL ${run.level}`, cx, cy-22);
+    ctx.font='22px VT323, monospace'; ctx.fillStyle='#ccaa33';
+    ctx.shadowColor='#aa8800'; ctx.shadowBlur=6;
+    ctx.fillText(`GOLD COLLECTED:  ${player.gold}G`, cx, cy+10); ctx.shadowBlur=0;
+    ctx.font='16px VT323, monospace'; ctx.fillStyle=C.gameOverSub;
+    ctx.fillText('the dead ends claim another soul...', cx, cy+34);
+
+    const pulse=0.55+0.45*Math.sin(now*0.003);
+    const bW=180, bH=34;
+    const retryX=cx-bW/2, retryY=cy+56;
+    const menuX=cx-bW/2,  menuY=cy+98;
+
+    ctx.fillStyle='rgba(18,0,0,0.9)'; ctx.fillRect(retryX,retryY,bW,bH);
+    ctx.strokeStyle=`rgba(200,30,30,${pulse})`; ctx.lineWidth=1;
+    ctx.strokeRect(retryX+0.5,retryY+0.5,bW-1,bH-1);
+    ctx.font='22px VT323, monospace'; ctx.fillStyle=`rgba(180,50,50,${pulse})`;
+    ctx.shadowColor='#cc0000'; ctx.shadowBlur=pulse*10;
+    ctx.fillText('[ R ]  TRY AGAIN', cx, retryY+bH/2); ctx.shadowBlur=0;
+
+    ctx.fillStyle='rgba(10,8,0,0.9)'; ctx.fillRect(menuX,menuY,bW,bH);
+    ctx.strokeStyle=`rgba(140,110,40,${pulse*0.85})`; ctx.lineWidth=1;
+    ctx.strokeRect(menuX+0.5,menuY+0.5,bW-1,bH-1);
+    ctx.font='20px VT323, monospace'; ctx.fillStyle=`rgba(120,100,60,${pulse*0.85})`;
+    ctx.fillText('[ M ]  MAIN MENU', cx, menuY+bH/2);
+
+    uiRects.gameOverRetry = {x:retryX, y:retryY, w:bW, h:bH};
+    uiRects.gameOverMenu  = {x:menuX,  y:menuY,  w:bW, h:bH};
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PAUSE SCREEN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderPaused(now) {
+    ctx.fillStyle='rgba(0,0,0,0.76)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2, cy=canvas.height/2;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='54px VT323, monospace'; ctx.fillStyle='#00ff41';
+    ctx.shadowColor='#00ff41'; ctx.shadowBlur=20;
+    ctx.fillText('PAUSED', cx, cy-52); ctx.shadowBlur=0;
+    ctx.font='16px VT323, monospace'; ctx.fillStyle='#446644';
+    ctx.fillText(`MAZE ${run.level}  ·  PLR LVL ${player.playerLevel}  ·  GOLD ${player.gold}G  ·  KILLS ${player.totalZombiesKilled}`, cx, cy-16);
+
+    const bW=200, bH=36;
+    const resumeX=cx-bW/2, resumeY=cy+12;
+    const quitX=cx-bW/2, quitY=cy+56;
+
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    ctx.fillStyle='rgba(0,12,0,0.9)'; ctx.fillRect(resumeX,resumeY,bW,bH);
+    ctx.strokeStyle=`rgba(0,255,65,${pulse})`; ctx.lineWidth=1;
+    ctx.strokeRect(resumeX+0.5,resumeY+0.5,bW-1,bH-1);
+    ctx.font='22px VT323, monospace'; ctx.fillStyle=`rgba(0,255,65,${pulse})`;
+    ctx.shadowColor='#00ff41'; ctx.shadowBlur=pulse*8;
+    ctx.fillText('[ R / ESC ]  RESUME', cx, resumeY+bH/2); ctx.shadowBlur=0;
+
+    ctx.fillStyle='rgba(12,8,0,0.9)'; ctx.fillRect(quitX,quitY,bW,bH);
+    ctx.strokeStyle='#aa8800'; ctx.lineWidth=1;
+    ctx.strokeRect(quitX+0.5,quitY+0.5,bW-1,bH-1);
+    ctx.font='20px VT323, monospace'; ctx.fillStyle='#ccaa33';
+    ctx.shadowColor='#aa8800'; ctx.shadowBlur=6;
+    ctx.fillText('[ Q ]  SAVE & QUIT', cx, quitY+bH/2); ctx.shadowBlur=0;
+
+    ctx.font='13px VT323, monospace'; ctx.fillStyle='#2a4a2a';
+    ctx.fillText('saves at maze boundaries - you will restart this maze on continue', cx, quitY+bH+18);
+
+    uiRects.pauseResume = {x:resumeX, y:resumeY, w:bW, h:bH};
+    uiRects.pauseQuit   = {x:quitX,   y:quitY,   w:bW, h:bH};
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SLOT SELECT SCREEN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderSlotSelect(now) {
+    const slots = loadAllSlots();
+    ctx.fillStyle = C.background; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Background rain effect
+    for (let i=0; i<5; i++) {
+        const hx = canvas.width*0.1 + i*(canvas.width*0.2);
+        const hy = (Math.sin(now*0.0006+i*1.4)*0.5+0.5)*(canvas.height*0.5)+10;
+        ctx.fillStyle=`rgba(0,180,50,${0.04+i%3*0.015})`;
+        ctx.fillRect(hx-1,0,2,hy);
+    }
+
+    const cx=canvas.width/2;
+    const flicker=0.82+0.18*Math.sin(now*0.011)*Math.sin(now*0.007);
+    ctx.font='42px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=`rgba(0,255,65,${flicker})`; ctx.shadowColor='#00ff41'; ctx.shadowBlur=20*flicker;
+    ctx.fillText('DEAD ENDS', cx, 44); ctx.shadowBlur=0;
+    ctx.font='14px VT323, monospace'; ctx.fillStyle='#1a3a1a';
+    ctx.fillText('SELECT SAVE SLOT', cx, 68);
+
+    const cardW=176, cardH=194, cardGap=12;
+    const totalW=3*cardW+2*cardGap;
+    const startX=Math.floor((canvas.width-totalW)/2);
+    const cardY=82;
+
+    for (let i=0; i<3; i++) {
+        const slot=slots[i];
+        const elapsed=Math.max(0,now-(setupFlow.slotAnimStart+i*100));
+        const slideT=Math.min(1,elapsed/280);
+        const ease=slideT*slideT*(3-2*slideT);
+        const offX=(1-ease)*90;
+        const sx=startX+i*(cardW+cardGap)+offX;
+        const isSelected=setupFlow.selectedSlot===i;
+
+        const tc=slot?TIER_CONFIG[slot.playerTier]:null;
+        const borderCol=isSelected?(tc?tc.glow:'#00ff41'):'#1a2a1a';
+        const borderW=isSelected?2:1;
+
+        ctx.fillStyle=isSelected?'rgba(0,20,0,0.96)':'rgba(0,8,0,0.72)';
+        ctx.fillRect(sx,cardY,cardW,cardH);
+        ctx.strokeStyle=borderCol; ctx.lineWidth=borderW;
+        if(isSelected){ctx.shadowColor=borderCol;ctx.shadowBlur=10;}
+        ctx.strokeRect(sx+1,cardY+1,cardW-2,cardH-2); ctx.shadowBlur=0;
+
+        ctx.font='11px VT323, monospace'; ctx.textAlign='left'; ctx.textBaseline='top';
+        ctx.fillStyle='#223322';
+        ctx.fillText(`[${i+1}]`,sx+5,cardY+5);
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        const ccx=sx+cardW/2;
+
+        // Store card rect (actual rendered x, accounting for slide animation)
+        slotSelectUi.cardRects[i] = {x:sx, y:cardY, w:cardW, h:cardH, idx:i};
+
+        if(slot){
+            ctx.font='14px VT323, monospace'; ctx.fillStyle=tc.color;
+            ctx.shadowColor=tc.glow; ctx.shadowBlur=isSelected?8:0;
+            ctx.fillText(tc.emoji+'  '+tc.name,ccx,cardY+28); ctx.shadowBlur=0;
+            ctx.font='16px VT323, monospace'; ctx.fillStyle='#aaddaa';
+            ctx.fillText(slot.name.toUpperCase(),ccx,cardY+52);
+            ctx.font='12px VT323, monospace'; ctx.fillStyle='#335533';
+            ctx.fillText(tc.grade+'  |  '+(LEARNING_MODES.find(m=>m.id===slot.learningMode)||LEARNING_MODES[0]).label,ccx,cardY+68);
+            ctx.fillStyle='#334a33';
+            ctx.fillText(`MAZE ${slot.mazeLevel}  |  LVL ${slot.playerLevel}`,ccx,cardY+84);
+            ctx.fillText(`GOLD ${slot.gold}G  |  KILLS ${slot.totalZombiesKilled}`,ccx,cardY+99);
+            drawCharacterSprite(CHARACTERS[getCharacterIdx(slot.character)].id, 'south', ccx, cardY+138, 64, 0);
+            // Trash button (top-right corner)
+            const trX=sx+cardW-26, trY=cardY+4, trW=22, trH=18;
+            ctx.fillStyle='rgba(40,8,8,0.85)'; ctx.fillRect(trX,trY,trW,trH);
+            ctx.strokeStyle='#662222'; ctx.lineWidth=1; ctx.strokeRect(trX+0.5,trY+0.5,trW-1,trH-1);
+            ctx.font='11px VT323, monospace'; ctx.fillStyle='#cc3333';
+            ctx.fillText('[X]',trX+trW/2,trY+trH/2);
+            slotSelectUi.trashRects[i] = {x:trX, y:trY, w:trW, h:trH, idx:i};
+            // Play hint
+            ctx.font='12px VT323, monospace'; ctx.fillStyle=isSelected?'#00dd44':'#2a5a2a';
+            ctx.fillText(isSelected?'[ CLICK TO PLAY ]':'click to play',ccx,cardY+cardH-12);
+        } else {
+            ctx.font='28px VT323, monospace'; ctx.fillStyle='#1a3a1a';
+            ctx.fillText('. . .',ccx,cardY+66);
+            ctx.font='13px VT323, monospace'; ctx.fillStyle='#2a4a2a';
+            ctx.fillText(`SLOT ${i+1}`,ccx,cardY+94);
+            ctx.fillText('EMPTY',ccx,cardY+110);
+            ctx.font='12px VT323, monospace'; ctx.fillStyle=isSelected?'#00dd44':'#2a5a2a';
+            ctx.fillText(isSelected?'[ CLICK TO CREATE ]':'click to create',ccx,cardY+cardH-12);
+            slotSelectUi.trashRects[i] = null;
+        }
+    }
+
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    ctx.font='13px VT323, monospace'; ctx.fillStyle=`rgba(0,200,50,${pulse})`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('CLICK A SLOT TO PLAY  |  [X] TO DELETE',cx,cardY+cardH+22);
+
+    // Delete confirm overlay
+    if (slotSelectUi.deleteConfirmSlot >= 0) {
+        const dslot = loadAllSlots()[slotSelectUi.deleteConfirmSlot];
+        const name = dslot ? dslot.name : '?';
+        ctx.fillStyle='rgba(0,0,0,0.80)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        const bW=340, bH=120, bX=Math.floor(cx-bW/2), bY=Math.floor(canvas.height/2-bH/2);
+        ctx.fillStyle='#0a0404'; ctx.fillRect(bX,bY,bW,bH);
+        ctx.strokeStyle='#cc3333'; ctx.lineWidth=1.5; ctx.strokeRect(bX+1,bY+1,bW-2,bH-2);
+        ctx.font='15px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ffaaaa';
+        ctx.fillText(`Delete ${name}'s adventure?`, cx, bY+24);
+        ctx.font='12px VT323, monospace'; ctx.fillStyle='#664444';
+        ctx.fillText('This cannot be undone.', cx, bY+44);
+        const btnW=120, btnH=30, btnY=bY+bH-btnH-10;
+        const yesX=cx-btnW-8, noX=cx+8;
+        ctx.fillStyle='#1a0808'; ctx.fillRect(yesX,btnY,btnW,btnH);
+        ctx.strokeStyle='#cc2222'; ctx.lineWidth=1; ctx.strokeRect(yesX+0.5,btnY+0.5,btnW-1,btnH-1);
+        ctx.font='15px VT323, monospace'; ctx.fillStyle='#ff4444';
+        ctx.fillText('Yes, Delete', yesX+btnW/2, btnY+btnH/2);
+        ctx.fillStyle='#081408'; ctx.fillRect(noX,btnY,btnW,btnH);
+        ctx.strokeStyle='#336633'; ctx.lineWidth=1; ctx.strokeRect(noX+0.5,btnY+0.5,btnW-1,btnH-1);
+        ctx.fillStyle='#55cc55'; ctx.fillText('Cancel', noX+btnW/2, btnY+btnH/2);
+        slotSelectUi.deleteYesRect    = {x:yesX, y:btnY, w:btnW, h:btnH};
+        slotSelectUi.deleteCancelRect = {x:noX,  y:btnY, w:btnW, h:btnH};
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CHARACTER SELECT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderCharSelect(now) {
+    ctx.fillStyle=C.background; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2;
+    ctx.font='32px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#00cc33'; ctx.shadowColor='#00ff41'; ctx.shadowBlur=12;
+    ctx.fillText('CHOOSE YOUR HERO', cx, 40); ctx.shadowBlur=0;
+    ctx.font='16px VT323, monospace'; ctx.fillStyle='#4a8a4a';
+    ctx.fillText('Who will brave the maze today?', cx, 66);
+
+    const cW=132, cH=210, gap=10;
+    const totalW=CHARACTERS.length*cW+(CHARACTERS.length-1)*gap;
+    const sx=Math.floor((canvas.width-totalW)/2), sy=88;
+    // Selected hero slowly turns around to show off their sides
+    const spin = ['south','east','north','west'][Math.floor(now/600)%4];
+    setupFlow.charCardRects = [];
+
+    for (let i=0; i<CHARACTERS.length; i++) {
+        const ch=CHARACTERS[i];
+        const x=sx+i*(cW+gap);
+        const isSelected=setupFlow.charSelectedIdx===i;
+        const elapsed=Math.max(0,now-(setupFlow.slotAnimStart+i*80));
+        const t=Math.min(1,elapsed/250);
+        const ease=t*t*(3-2*t);
+        const y=sy+(1-ease)*60;
+
+        ctx.fillStyle=isSelected?'rgba(0,20,0,0.95)':'rgba(0,8,0,0.7)';
+        ctx.fillRect(x,y,cW,cH);
+        ctx.strokeStyle=isSelected?ch.color:'#1f3a1f'; ctx.lineWidth=isSelected?2:1;
+        if(isSelected){ctx.shadowColor=ch.color;ctx.shadowBlur=12;}
+        ctx.strokeRect(x+1,y+1,cW-2,cH-2); ctx.shadowBlur=0;
+        setupFlow.charCardRects[i]={x, y, w:cW, h:cH, idx:i};
+
+        const ccx=x+cW/2;
+        drawCharacterSprite(ch.id, isSelected?spin:'south', ccx, y+66, 104, 0);
+
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='20px VT323, monospace'; ctx.fillStyle=isSelected?'#ffffff':ch.color;
+        ctx.fillText(ch.name, ccx, y+134);
+        ctx.font='15px VT323, monospace'; ctx.fillStyle='#6a9a6a';
+        ctx.fillText(ch.desc, ccx, y+154);
+
+        if(isSelected){
+            ctx.font='14px VT323, monospace'; ctx.fillStyle=ch.color;
+            ctx.fillText('[ CLICK / ENTER ]', ccx, y+cH-16);
+        } else {
+            ctx.font='14px VT323, monospace'; ctx.fillStyle='#3a5a3a';
+            ctx.fillText(`[ ${i+1} ]`, ccx, y+cH-16);
+        }
+    }
+
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    ctx.font='15px VT323, monospace'; ctx.fillStyle=`rgba(0,200,50,${pulse})`;
+    ctx.textAlign='center';
+    ctx.fillText('CLICK OR 1-4 TO PICK  |  ENTER TO CONFIRM  |  ESC BACK', cx, sy+cH+26);
+}
+
+// Called from slot select: every session starts by picking a hero
+function openSlot(idx) {
+    const slot=loadAllSlots()[idx];
+    setupFlow.selectedSlot=idx;
+    setupFlow.targetSlot=idx;
+    setupFlow.isExistingSlot=!!slot;
+    setupFlow.tierSelectedIdx=slot ? (slot.playerTier||0) : 0;
+    setupFlow.modeSelectedIdx=slot ? Math.max(0,LEARNING_MODES.findIndex(m=>m.id===slot.learningMode)) : 0;
+    setupFlow.charSelectedIdx=slot ? getCharacterIdx(slot.character) : 0;
+    setupFlow.slotAnimStart=performance.now();
+    gameState='CHARSELECT';
+}
+
+function confirmCharSelect() {
+    gameConfig.character=CHARACTERS[setupFlow.charSelectedIdx].id;
+    setupFlow.slotAnimStart=performance.now();
+    gameState=setupFlow.isExistingSlot ? 'MODESELECT' : 'TIERSELECT';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  TIER SELECT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderTierSelect(now) {
+    ctx.fillStyle=C.background; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2;
+    ctx.font='32px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#00cc33'; ctx.shadowColor='#00ff41'; ctx.shadowBlur=12;
+    ctx.fillText('SELECT YOUR ADVENTURER', cx, 40); ctx.shadowBlur=0;
+    ctx.font='14px VT323, monospace'; ctx.fillStyle='#1a3a1a';
+    ctx.fillText('Choose your age group for the right challenge level', cx, 64);
+
+    const cW=130, cH=176, gap=10;
+    const totalW=4*cW+3*gap;
+    const sx=Math.floor((canvas.width-totalW)/2), sy=80;
+    setupFlow.tierCardRects = [];
+
+    for(let i=0;i<4;i++){
+        const tc=TIER_CONFIG[i];
+        const cx2=sx+i*(cW+gap);
+        const isSelected=setupFlow.tierSelectedIdx===i;
+        const elapsed=Math.max(0,now-(setupFlow.slotAnimStart+i*80));
+        const t=Math.min(1,elapsed/250);
+        const ease=t*t*(3-2*t);
+        const oy=(1-ease)*60;
+
+        ctx.fillStyle=isSelected?'rgba(0,20,0,0.95)':'rgba(0,8,0,0.7)';
+        ctx.fillRect(cx2,sy+oy,cW,cH);
+        ctx.strokeStyle=isSelected?tc.glow:tc.color; ctx.lineWidth=isSelected?2:1;
+        if(isSelected){ctx.shadowColor=tc.glow;ctx.shadowBlur=12;}
+        ctx.strokeRect(cx2+1,sy+oy+1,cW-2,cH-2); ctx.shadowBlur=0;
+
+        setupFlow.tierCardRects[i] = {x:cx2, y:sy+oy, w:cW, h:cH, idx:i};
+
+        const ccx=cx2+cW/2;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='22px VT323, monospace'; ctx.fillStyle=tc.color;
+        ctx.fillText(tc.emoji,ccx,sy+oy+26);
+        ctx.font='15px VT323, monospace'; ctx.fillStyle=isSelected?'#aaffcc':'#66aa88';
+        ctx.fillText(tc.name,ccx,sy+oy+52);
+        ctx.font='12px VT323, monospace'; ctx.fillStyle='#446644';
+        ctx.fillText(tc.grade,ccx,sy+oy+68);
+
+        ctx.font='11px VT323, monospace'; ctx.fillStyle='#335533';
+        ctx.fillText(`Words ${tc.wordLenMin}-${tc.wordLenMax} letters`,ccx,sy+oy+90);
+        ctx.fillText(`${tc.attackMs/1000}s attack timer`,ccx,sy+oy+105);
+
+        if(isSelected){
+            ctx.font='13px VT323, monospace'; ctx.fillStyle=tc.glow;
+            ctx.shadowColor=tc.glow; ctx.shadowBlur=6;
+            ctx.fillText('[ CLICK / ENTER ]',ccx,sy+oy+cH-16); ctx.shadowBlur=0;
+        } else {
+            ctx.font='12px VT323, monospace'; ctx.fillStyle='#334a33';
+            ctx.fillText(`[ ${i+1} ]`,ccx,sy+oy+cH-16);
+        }
+    }
+
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    ctx.font='13px VT323, monospace'; ctx.fillStyle=`rgba(0,200,50,${pulse})`;
+    ctx.textAlign='center';
+    ctx.fillText('CLICK OR 1-4 TO SELECT  |  ENTER TO CONFIRM  |  ESC BACK',cx,sy+cH+24);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  MODE SELECT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderModeSelect(now) {
+    ctx.fillStyle=C.background; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2;
+    const isExisting=setupFlow.isExistingSlot;
+    ctx.font='32px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#00cc33'; ctx.shadowColor='#00ff41'; ctx.shadowBlur=12;
+    ctx.fillText(isExisting?'PICK YOUR MODE':'SELECT LEARNING MODE', cx, 40); ctx.shadowBlur=0;
+    ctx.font='14px VT323, monospace'; ctx.fillStyle='#1a3a1a';
+    ctx.fillText(isExisting?'Choose your mode for this session':'How do you want to battle zombies?', cx, 64);
+
+    const tc=TIER_CONFIG[setupFlow.tierSelectedIdx];
+    const NUM_MODES=LEARNING_MODES.length; // 3
+    const cW=140, cH=160, gap=14;
+    const totalW=NUM_MODES*cW+(NUM_MODES-1)*gap;
+    const sx=Math.floor((canvas.width-totalW)/2), sy=84;
+    const modeDetails = [
+        ['Type words to attack', 'Faster typing = better!'],
+        ['Solve math problems', `Tier: ${tc.grade}`],
+        ['Click matching color', 'Tests color recognition'],
+    ];
+    setupFlow.modeCardRects = [];
+
+    for(let i=0;i<NUM_MODES;i++){
+        const md=LEARNING_MODES[i];
+        const cx2=sx+i*(cW+gap);
+        const isSelected=setupFlow.modeSelectedIdx===i;
+        const elapsed=Math.max(0,now-(setupFlow.slotAnimStart+i*80));
+        const t=Math.min(1,elapsed/250);
+        const ease=t*t*(3-2*t);
+        const oy=(1-ease)*60;
+
+        ctx.fillStyle=isSelected?'rgba(0,20,0,0.95)':'rgba(0,8,0,0.7)';
+        ctx.fillRect(cx2,sy+oy,cW,cH);
+        ctx.strokeStyle=isSelected?tc.glow:tc.color; ctx.lineWidth=isSelected?2:1;
+        if(isSelected){ctx.shadowColor=tc.glow;ctx.shadowBlur=12;}
+        ctx.strokeRect(cx2+1,sy+oy+1,cW-2,cH-2); ctx.shadowBlur=0;
+
+        setupFlow.modeCardRects[i] = {x:cx2, y:sy+oy, w:cW, h:cH, idx:i};
+
+        const ccx=cx2+cW/2;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='16px VT323, monospace'; ctx.fillStyle=isSelected?'#aaffcc':'#66aa88';
+        ctx.fillText(md.label, ccx, sy+oy+26);
+        ctx.font='11px VT323, monospace'; ctx.fillStyle='#446644';
+        ctx.fillText(modeDetails[i][0],ccx,sy+oy+52);
+        ctx.fillText(modeDetails[i][1],ccx,sy+oy+67);
+
+        if(isSelected){
+            ctx.font='13px VT323, monospace'; ctx.fillStyle=tc.glow;
+            ctx.shadowColor=tc.glow; ctx.shadowBlur=6;
+            ctx.fillText('[ SELECTED ]',ccx,sy+oy+cH-16); ctx.shadowBlur=0;
+        } else {
+            ctx.font='12px VT323, monospace'; ctx.fillStyle='#334a33';
+            ctx.fillText(`[ ${i+1} ]`,ccx,sy+oy+cH-16);
+        }
+    }
+
+    // Start / Continue button
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    const btnW=200, btnH=30, btnX=Math.floor(cx-100), btnY=sy+cH+28;
+    ctx.fillStyle='rgba(0,16,0,0.95)'; ctx.fillRect(btnX,btnY,btnW,btnH);
+    ctx.strokeStyle=`rgba(0,255,65,${pulse})`; ctx.lineWidth=1;
+    ctx.strokeRect(btnX+0.5,btnY+0.5,btnW-1,btnH-1);
+    ctx.font='16px VT323, monospace'; ctx.fillStyle=`rgba(0,255,65,${pulse})`;
+    ctx.shadowColor='#00ff41'; ctx.shadowBlur=pulse*8;
+    ctx.fillText(isExisting?'[ ENTER ] START GAME':'[ ENTER ] CONTINUE', cx, btnY+btnH/2);
+    ctx.shadowBlur=0;
+    setupFlow.modeStartRect = {x:btnX, y:btnY, w:btnW, h:btnH};
+
+    ctx.font='12px VT323, monospace'; ctx.fillStyle=`rgba(0,160,40,0.6)`;
+    ctx.fillText('CLICK OR 1-3  |  ESC BACK', cx, btnY+btnH+18);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  NAMING SCREEN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderNaming(now) {
+    ctx.fillStyle=C.background; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2, cy=canvas.height/2;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='32px VT323, monospace'; ctx.fillStyle='#00cc33';
+    ctx.shadowColor='#00ff41'; ctx.shadowBlur=12;
+    ctx.fillText('ENTER YOUR NAME', cx, cy-80); ctx.shadowBlur=0;
+    ctx.font='14px VT323, monospace'; ctx.fillStyle='#1a3a1a';
+    ctx.fillText('Up to 20 characters. Letters, numbers, spaces.', cx, cy-52);
+
+    const iW=320, iH=44;
+    const iX=cx-iW/2, iY=cy-20;
+    ctx.fillStyle='#0a1a0a'; ctx.fillRect(iX,iY,iW,iH);
+    ctx.strokeStyle='#00aa33'; ctx.lineWidth=2;
+    ctx.shadowColor='#00ff41'; ctx.shadowBlur=8;
+    ctx.strokeRect(iX,iY,iW,iH); ctx.shadowBlur=0;
+    ctx.font='28px VT323, monospace'; ctx.fillStyle='#00ff88';
+    const cursor = Math.floor(now/400)%2===0?'_':'';
+    const display = (setupFlow.name||'')+cursor;
+    ctx.fillText(display||'_',cx,iY+iH/2);
+
+    const pulse=0.6+0.4*Math.sin(now*0.003);
+    ctx.font='16px VT323, monospace'; ctx.fillStyle=`rgba(0,200,50,${pulse})`;
+    ctx.fillText('PRESS ENTER TO CONTINUE  |  ESC TO GO BACK', cx, cy+50);
+}
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SPAWNING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildReservedCells(maze) {
+    const r = new Set();
+    for (let c=0; c<maze.size; c++)
+        for (let row=0; row<maze.size; row++)
+            if (c + row <= 2) r.add(`${c},${row}`);
+    r.add(`${maze.exitCol},${maze.exitRow}`);
+    return r;
+}
+
+function spawnZombies(maze, extraGuards, chestMap, reserved) {
+    const map = new Map();
+    for (const row of maze.grid)
+        for (const cell of row) {
+            const key=`${cell.col},${cell.row}`;
+            if (cell.isDeadEnd && !reserved.has(key))
+                map.set(key, { col:cell.col, row:cell.row, hp:run.zombieHp, maxHp:run.zombieHp });
+        }
+
+    if (extraGuards > 0) {
+        const eligible=[];
+        for (const row of maze.grid)
+            for (const cell of row) {
+                const key=`${cell.col},${cell.row}`;
+                if (!cell.isDeadEnd && !reserved.has(key) && !map.has(key) && !chestMap.has(key))
+                    eligible.push(cell);
+            }
+        for (let i=eligible.length-1; i>0; i--) {
+            const j=Math.floor(Math.random()*(i+1));
+            [eligible[i],eligible[j]]=[eligible[j],eligible[i]];
+        }
+        for (let i=0; i<Math.min(extraGuards,eligible.length); i++) {
+            const cell=eligible[i], key=`${cell.col},${cell.row}`;
+            map.set(key, { col:cell.col, row:cell.row, hp:run.zombieHp, maxHp:run.zombieHp });
+        }
+    }
+    return map;
+}
+
+// One random zombie carries the exit key. If a maze somehow has no zombies,
+// spawn a guard so there's always someone to fight for it.
+function assignKeyZombie(maze, chestMap, reserved) {
+    if (zombies.size === 0) {
+        const eligible = [];
+        for (const row of maze.grid)
+            for (const cell of row) {
+                const key = `${cell.col},${cell.row}`;
+                if (!reserved.has(key) && !chestMap.has(key)) eligible.push(cell);
+            }
+        const cell = eligible[Math.floor(Math.random() * eligible.length)];
+        if (cell) zombies.set(`${cell.col},${cell.row}`,
+            { col:cell.col, row:cell.row, hp:run.zombieHp, maxHp:run.zombieHp });
+    }
+    const all = [...zombies.values()];
+    if (all.length > 0) all[Math.floor(Math.random() * all.length)].hasKey = true;
+}
+
+function spawnChests(maze, reserved) {
+    const eligible=[];
+    for (const row of maze.grid)
+        for (const cell of row) {
+            const key=`${cell.col},${cell.row}`;
+            if (!cell.isDeadEnd && !reserved.has(key)) eligible.push(cell);
+        }
+    for (let i=eligible.length-1; i>0; i--) {
+        const j=Math.floor(Math.random()*(i+1));
+        [eligible[i],eligible[j]]=[eligible[j],eligible[i]];
+    }
+    const count=randInt(CK.countMin, CK.countMax), map=new Map();
+    for (let i=0; i<Math.min(count,eligible.length); i++) {
+        const cell=eligible[i];
+        map.set(`${cell.col},${cell.row}`, { col:cell.col, row:cell.row });
+    }
+    return map;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  LOOT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function rollLoot() {
+    const w=CK.lootWeights;
+    const rf = player.rabbitFeet;
+    // Rabbit's foot gold bonuses (cumulative)
+    let goldMin = CK.goldMin, goldMax = CK.goldMax;
+    if (rf >= 1) { goldMin += 5; goldMax += 5; }
+    if (rf >= 2) { goldMin += 5; goldMax += 5; }
+    if (rf >= 4) { goldMin += 5; goldMax += 5; }
+    // Rabbit's foot potion weight bonus at rf>=2
+    const potionBonus = rf >= 2 ? 5 : 0;
+    const goldW  = w.gold;
+    const potW   = w.potion + potionBonus;
+
+    let roll = Math.random() * 100;
+
+    // RF>=5: TODO: 5-foot chest choice UI — fall through to normal loot for now
+    if (roll < goldW) {
+        const amt=randInt(goldMin, goldMax); player.gold+=amt;
+        return { title:`+${amt} GOLD`, subtitle:'COINS CLINK IN YOUR POCKET', color:C.popupGold };
+    }
+    if (roll < goldW + potW) {
+        if (player.potions >= 5) {
+            return { title:'INVENTORY FULL', subtitle:'DROP SOMETHING TO CARRY MORE POTIONS', color:C.popupPotion };
+        }
+        player.potions++;
+        syncPotionsHud();
+        return { title:'+1 POTION', subtitle:`ADDED TO INVENTORY  (${player.potions}/5)`, color:C.popupPotion };
+    }
+    // Would be empty
+    if (rf >= 3) {
+        // Never empty — re-roll as gold
+        const amt=randInt(goldMin, goldMax); player.gold+=amt;
+        return { title:`+${amt} GOLD`, subtitle:'LUCKY COINS CLINK IN YOUR POCKET', color:C.popupGold };
+    }
+    const msgs=CK.emptyMessages;
+    return { title:'NOTHING', subtitle:msgs[Math.floor(Math.random()*msgs.length)], color:C.popupEmpty };
+}
+
+function openChest(key, col, row) {
+    chests.delete(key);
+    const loot=rollLoot();
+    showPopup(loot.title, loot.subtitle, loot.color);
+    spawnSparkles(col, row, performance.now());
+    playChime();
+    syncHpHud(); syncGoldHud(); syncPotionsHud();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  GAME STATE VARIABLES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let gameState = 'SLOTSELECT';
+let currentMaze, chests, zombies, fogVisited;
+let fogCanvas = null, fogCtx = null;
+let repelledCells = new Set();
+
+const gameConfig = { playerTier:0, learningMode:'TYPING', currentSlot:0, character:'lizard' };
+
+const setupFlow = {
+    selectedSlot:0, targetSlot:0,
+    tierSelectedIdx:0, modeSelectedIdx:0, charSelectedIdx:0,
+    charCardRects: [],
+    charNextRect: null,
+    name:'',
+    slotAnimStart:-Infinity,
+    isExistingSlot: false,
+    tierCardRects: [],
+    modeCardRects: [],
+    modeStartRect: null,
+};
+
+const slotSelectUi = {
+    deleteConfirmSlot: -1,
+    cardRects: [],
+    trashRects: [],
+    deleteYesRect: null,
+    deleteCancelRect: null,
+};
+
+const uiRects = {
+    pauseResume: null,
+    pauseQuit: null,
+    gameOverRetry: null,
+    gameOverMenu: null,
+    levelCompleteShop: null,
+};
+
+const battlePrep = { zombie:null, startedAt:0, repellentRect:null };
+const staggerFlash = { shownAt:-Infinity, duration:800 };
+
+const player = {
+    col:0, row:0,
+    facing:'south', // sprite direction: north/south/east/west
+    hasKey:false,   // picked up from this maze's key-carrying zombie
+    hp:CC.playerMaxHp, maxHp:CC.playerMaxHp,
+    gold:0,
+    xp:0, playerLevel:1,
+    potions:0,
+    weapon:    { ...CC.startWeapon },
+    armorTier: 0,
+    armorLevel:0,
+    totalZombiesKilled:0,
+    chickens:  0,   // max 3
+    repellents:0,   // max 2
+    rabbitFeet:0,   // max 5
+    torchTier: 0,   // 0=none,1=candle,2=lantern,3=torch
+};
+
+const combat = {
+    zombie:null, zombieTimerId:null,
+    playerFlashAt:-Infinity, zombieFlashAt:-Infinity,
+    zombieNextAt:0, log:'',
+    // typing
+    word:'', typed:'', wrongFlashAt:-Infinity,
+    // math
+    mathProblem:'', mathAnswer:0, mathTyped:'', mathWrongAt:-Infinity,
+    // color
+    colorChallenge:null, colorButtons:[], colorWrongAt:-Infinity,
+    // ui rects
+    chickenRect:null,
+};
+
+let mazeStartTime = null;
+let pauseStartTime = 0;
+let mazeZombieCount = 0;
+let mazeZombiesKilledCount = 0;
+let allZombiesKilled = false;
+const exterminatorNotif = { shownAt:-Infinity, duration:2500 };
+const levelCompleteData = { elapsed:0, speedBonus:0, xpGained:0, levelsGained:0, allZombiesKilled:false };
+const levelUpNotif = { shownAt:-Infinity, duration:2000 };
+const saveFlash = { shownAt:-Infinity, duration:1800 };
+
+const shopUi = {
+    navIdx: 0,
+    tab: 'WEAPONS',
+    page: 0,
+    selectedCard: 0,
+    tabRects: [],
+    cardRects: [],
+    prevPageRect: null,
+    nextPageRect: null,
+    snapshot: null,
+    oopsConfirm: false,
+    oopsFlashAt: -Infinity,
+    goldFlashAt: -Infinity,
+    goldFlashFrom: 0,
+    hoverX: -1, hoverY: -1,
+    itemRects: [],
+    oopsRect: null,
+    nextLevelRect: null,
+    confirmYesRect: null,
+    confirmNoRect: null,
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  INIT LEVEL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function initLevel() {
+    const reserved = buildReservedCells(currentMaze);
+    chests  = spawnChests(currentMaze, reserved);
+    zombies = spawnZombies(currentMaze, run.extraGuards, chests, reserved);
+    assignKeyZombie(currentMaze, chests, reserved);
+    player.hasKey = false;
+    player.facing = 'south';
+    syncKeyHud();
+    mazeZombieCount = zombies.size;
+    mazeZombiesKilledCount = 0;
+    allZombiesKilled = false;
+    fogVisited = new Set();
+    repelledCells = new Set();
+    updateFogVisited();
+    playerAnim.fromCol = 0; playerAnim.fromRow = 0;
+    playerAnim.toCol   = 0; playerAnim.toRow   = 0;
+    playerAnim.startTime = 0;
+    syncZombiesHud();
+}
+
+currentMaze = new Maze(GS);
+initLevel();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CHALLENGE GENERATORS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function genMathProblem() {
+    const tier = gameConfig.playerTier;
+    const opSets = [['+'], ['+','-'], ['+','-','x'], ['+','-','x','/']];
+    const maxVals = [10, 20, 50, 99];
+    const ops = opSets[tier];
+    const maxV = maxVals[tier];
+    const op = ops[Math.floor(Math.random()*ops.length)];
+    let a, b, answer;
+    if(op==='+')       { a=randInt(1,maxV); b=randInt(1,maxV-a||1); answer=a+b; }
+    else if(op==='-')  { b=randInt(1,maxV); a=randInt(b,maxV); answer=a-b; }
+    else if(op==='x')  { a=randInt(1,12); b=randInt(1,12); answer=a*b; }
+    else               { b=randInt(1,12); answer=randInt(1,12); a=b*answer; }
+    return { problem:`${a} ${op} ${b} =`, answer };
+}
+
+function genColorChallenge() {
+    const tier = gameConfig.playerTier;
+    // TODO: Tier 4 Color/Shape replacement needed
+    const effectiveTier = Math.min(tier, 2);
+    const correct = COLOR_NAMES[Math.floor(Math.random()*COLOR_NAMES.length)];
+    const wrongs = COLOR_NAMES.filter(c=>c!==correct);
+    for(let i=wrongs.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));[wrongs[i],wrongs[j]]=[wrongs[j],wrongs[i]];
+    }
+    const numOpts = effectiveTier>=1 ? 4 : 3;
+    const opts = [correct,...wrongs.slice(0,numOpts-1)];
+    for(let i=opts.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];
+    }
+
+    if(effectiveTier===0){
+        return {
+            type:'SWATCH', swatchColor:COLOR_DATA[correct], correctWord:correct,
+            options:opts.map(c=>({word:c,correct:c===correct}))
+        };
+    } else {
+        const inkName = COLOR_NAMES[Math.floor(Math.random()*COLOR_NAMES.length)];
+        const dispWord = COLOR_NAMES[Math.floor(Math.random()*COLOR_NAMES.length)];
+        const prompt = effectiveTier>=2 ? 'CLICK THE INK COLOR (ignore the word)' : 'CLICK THE COLOR OF THE INK';
+        return {
+            type:'STROOP', displayWord:dispWord, inkCss:COLOR_DATA[inkName], correctAnswer:inkName,
+            prompt,
+            options:opts.map(c=>({word:c,correct:c===inkName}))
+        };
+    }
+}
+
+function pickNewWord() {
+    combat.word = getWordForTier(gameConfig.playerTier);
+    combat.typed = '';
+    combat.wrongFlashAt = -Infinity;
+}
+
+function pickNewMath() {
+    const m = genMathProblem();
+    combat.mathProblem = m.problem;
+    combat.mathAnswer = m.answer;
+    combat.mathTyped = '';
+    combat.mathWrongAt = -Infinity;
+}
+
+function pickNewColor() {
+    combat.colorChallenge = genColorChallenge();
+    combat.colorButtons = [];
+    combat.colorWrongAt = -Infinity;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  COMBAT LOGIC
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function enterCombat(zombie) {
+    battlePrep.zombie = zombie;
+    battlePrep.startedAt = performance.now();
+    combat.zombie = zombie;
+    combat.playerFlashAt = -Infinity;
+    combat.zombieFlashAt = -Infinity;
+    combat.wrongFlashAt  = -Infinity;
+    combat.mathWrongAt   = -Infinity;
+    combat.colorWrongAt  = -Infinity;
+    combat.log = '';
+    const mode = gameConfig.learningMode;
+    if(mode==='TYPING')     pickNewWord();
+    else if(mode==='MATH')  pickNewMath();
+    else if(mode==='COLOR') pickNewColor();
+    gameState = 'BATTLEPREP';
+}
+
+function startCombatAfterPrep() {
+    gameState = 'COMBAT';
+    const logs = {
+        TYPING:'TYPE THE WORD TO ATTACK!', MATH:'SOLVE THE PROBLEM!',
+        COLOR:'CLICK THE RIGHT COLOR!'
+    };
+    combat.log = logs[gameConfig.learningMode] || 'ATTACK!';
+    scheduleZombieAttack();
+}
+
+function scheduleZombieAttack() {
+    const attackMs = TIER_CONFIG[gameConfig.playerTier].attackMs;
+    combat.zombieNextAt  = performance.now() + attackMs;
+    combat.zombieTimerId = setTimeout(zombieAttackTick, attackMs);
+}
+
+function stagger() {
+    if(!combat.zombie || combat.zombie.hp <= 0) return;
+    clearTimeout(combat.zombieTimerId);
+    combat.zombieTimerId = null;
+    staggerFlash.shownAt = performance.now();
+    scheduleZombieAttack();
+}
+
+function zombieAttackTick() {
+    if (gameState !== 'COMBAT' || !combat.zombie) return;
+    const dmg = Math.max(1, run.zombieDmg - player.armorLevel);
+    player.hp = Math.max(0, player.hp - dmg);
+    combat.playerFlashAt = performance.now();
+    combat.log = `ZOMBIE BITES!  YOU TAKE ${dmg} DAMAGE`;
+    playCrunch();
+    syncHpHud();
+    if (player.hp <= 0) {
+        clearTimeout(combat.zombieTimerId); combat.zombieTimerId = null;
+        gameState = 'GAMEOVER';
+    } else {
+        scheduleZombieAttack();
+    }
+}
+
+function playerAttack() {
+    if (gameState!=='COMBAT' || !combat.zombie || combat.zombie.hp<=0) return;
+    const dmg = player.weapon.damage;
+    combat.zombie.hp = Math.max(0, combat.zombie.hp - dmg);
+    combat.zombieFlashAt = performance.now();
+    combat.log = `YOU STRIKE FOR ${dmg} DAMAGE`;
+    playThud();
+    if (combat.zombie.hp <= 0) {
+        zombies.delete(`${combat.zombie.col},${combat.zombie.row}`);
+        clearTimeout(combat.zombieTimerId); combat.zombieTimerId = null;
+        player.totalZombiesKilled++;
+        mazeZombiesKilledCount++;
+        if (zombies.size === 0 && mazeZombieCount > 0) {
+            allZombiesKilled = true;
+            exterminatorNotif.shownAt = performance.now();
+        }
+        syncZombiesHud();
+        const drop = randInt(CC.zombieGoldMin, CC.zombieGoldMax);
+        player.gold += drop;
+        const xpGain = 10 + (run.level * 2);
+        player.xp += xpGain;
+        levelCompleteData.xpGained += xpGain;
+        checkLevelUp();
+        combat.log = `ZOMBIE DESTROYED!  +${drop}G  +${xpGain}XP`;
+        syncGoldHud(); syncXpHud();
+        if (combat.zombie.hasKey) {
+            player.hasKey = true;
+            syncKeyHud();
+            combat.log = `🗝️ YOU FOUND THE EXIT KEY!  +${drop}G  +${xpGain}XP`;
+            showPopup(`🗝️ KEY FOUND!  +${drop}G  +${xpGain}XP`, 'THE EXIT DOOR IS NOW UNLOCKED', '#ffdd44');
+        } else {
+            showPopup(`+${drop}G  +${xpGain}XP`, 'LOOTED FROM THE ZOMBIE', C.popupGold);
+        }
+        playFanfare();
+        setTimeout(() => {
+            if (gameState==='COMBAT') {
+                if (mazeStartTime) mazeStartTime += (performance.now() - battlePrep.startedAt);
+                gameState='MAZE'; combat.zombie=null;
+            }
+        }, CC.killPauseMs);
+    } else {
+        stagger();
+    }
+}
+
+function handleTypingInput(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length !== 1 || !/[a-z]/i.test(e.key)) return;
+    e.preventDefault();
+    const expected = combat.word[combat.typed.length];
+    if (e.key.toLowerCase() === expected) {
+        combat.typed += e.key.toLowerCase();
+        if (combat.typed === combat.word) {
+            playCorrect();
+            playerAttack();
+            if (gameState === 'COMBAT' && combat.zombie && combat.zombie.hp > 0) {
+                pickNewWord();
+            }
+        }
+    } else {
+        combat.wrongFlashAt = performance.now();
+        // correct prefix is retained — only flash, no reset
+        playWrong();
+    }
+}
+
+function handleMathInput(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    e.preventDefault();
+    if (e.key === 'Backspace') {
+        combat.mathTyped = combat.mathTyped.slice(0,-1);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+        if (combat.mathTyped.length === 0) return;
+        const ans = parseInt(combat.mathTyped, 10);
+        if (!isNaN(ans) && ans === combat.mathAnswer) {
+            playCorrect();
+            playerAttack();
+            if (gameState==='COMBAT' && combat.zombie && combat.zombie.hp > 0) pickNewMath();
+        } else {
+            combat.mathWrongAt = performance.now();
+            combat.mathTyped = '';
+            playWrong();
+        }
+    } else if (/^\d$/.test(e.key)) {
+        if (combat.mathTyped.length < 7) combat.mathTyped += e.key;
+    }
+}
+
+
+function handleCombatClick(mx, my) {
+    const mode = gameConfig.learningMode;
+    if (mode === 'COLOR') {
+        for (const btn of combat.colorButtons) {
+            if (mx>=btn.x && mx<=btn.x+btn.w && my>=btn.y && my<=btn.y+btn.h) {
+                if (btn.correct) {
+                    playCorrect();
+                    playerAttack();
+                    if (gameState==='COMBAT' && combat.zombie && combat.zombie.hp>0) pickNewColor();
+                } else {
+                    combat.colorWrongAt = performance.now();
+                    playWrong();
+                }
+                return;
+            }
+        }
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  LEVEL PROGRESSION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function triggerLevelComplete() {
+    if (combat.zombieTimerId) { clearTimeout(combat.zombieTimerId); combat.zombieTimerId=null; }
+    const elapsed = mazeStartTime ? (performance.now() - mazeStartTime) / 1000 : 999;
+    let speedBonus = 0;
+    if      (elapsed < 60)  speedBonus = 30;
+    else if (elapsed < 90)  speedBonus = 20;
+    else if (elapsed < 120) speedBonus = 10;
+    if (speedBonus > 0) { player.gold += speedBonus; syncGoldHud(); }
+    levelCompleteData.elapsed    = elapsed;
+    levelCompleteData.speedBonus = speedBonus;
+    levelCompleteData.allZombiesKilled = allZombiesKilled;
+    if (allZombiesKilled) {
+        player.gold += 40;
+        player.xp += 25;
+        levelCompleteData.xpGained += 25;
+        checkLevelUp();
+        syncGoldHud(); syncXpHud();
+    }
+    const p=computeLevelParams(run.level+1);
+    nextLevel.level=run.level+1; nextLevel.gridSize=p.gridSize; nextLevel.cellSize=p.cellSize;
+    nextLevel.zombieHp=p.zombieHp; nextLevel.zombieDmg=p.zombieDmg; nextLevel.extraGuards=p.extraGuards;
+    gameState='LEVELCOMPLETE';
+    saveGame();
+}
+
+function enterShop() {
+    shopUi.snapshot = {
+        gold: player.gold,
+        weaponName: player.weapon.name, weaponDamage: player.weapon.damage,
+        armorTier: player.armorTier, armorLevel: player.armorLevel,
+        potions: player.potions, maxHp: player.maxHp, hp: player.hp,
+        playerLevel: player.playerLevel, xp: player.xp,
+        chickens: player.chickens, repellents: player.repellents,
+        rabbitFeet: player.rabbitFeet, torchTier: player.torchTier,
+    };
+    shopUi.navIdx = 0;
+    shopUi.tab = 'WEAPONS';
+    shopUi.page = 0;
+    shopUi.selectedCard = 0;
+    shopUi.tabRects = [];
+    shopUi.cardRects = [];
+    shopUi.prevPageRect = null;
+    shopUi.nextPageRect = null;
+    shopUi.oopsConfirm = false;
+    shopUi.oopsFlashAt = -Infinity;
+    shopUi.goldFlashAt = -Infinity;
+    shopUi.itemRects = [];
+    shopUi.oopsRect = null;
+    shopUi.nextLevelRect = null;
+    gameState = 'SHOP';
+}
+
+function buyItem(idx) {
+    const goldBefore = player.gold;
+    switch (idx) {
+        case 0: {
+            const wt=getWeaponTierIndex();
+            if (wt>=WEAPONS.length-1) return;
+            const nw=WEAPONS[wt+1];
+            if (player.playerLevel<nw.level||player.gold<nw.cost) return;
+            player.gold-=nw.cost;
+            player.weapon.name=nw.name; player.weapon.damage=nw.damage;
+            syncGoldHud(); syncWeaponHud(); saveGame(); break;
+        }
+        case 1: {
+            const at=player.armorTier;
+            if (at>=ARMORS.length-1) return;
+            const na=ARMORS[at+1];
+            if (player.playerLevel<na.level||player.gold<na.cost) return;
+            player.gold-=na.cost;
+            player.armorTier++; player.armorLevel=ARMORS[player.armorTier].defense;
+            syncGoldHud(); syncArmorHud(); saveGame(); break;
+        }
+        case 2: {
+            if (player.potions>=5||player.gold<20) return;
+            player.gold-=20; player.potions++;
+            syncGoldHud(); syncPotionsHud(); saveGame(); break;
+        }
+        case 3: {
+            if (player.gold<60) return;
+            player.gold-=60; player.maxHp+=10;
+            player.hp=Math.min(player.maxHp, player.hp+10);
+            syncHpHud(); syncGoldHud(); saveGame(); break;
+        }
+    }
+    if (player.gold !== goldBefore) {
+        shopUi.goldFlashFrom = goldBefore;
+        shopUi.goldFlashAt = performance.now();
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CHICKEN + REPELLENT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function useChicken() {
+    if (player.chickens <= 0) return;
+    if (gameState !== 'COMBAT' && gameState !== 'BATTLEPREP') return;
+    player.chickens--;
+    const mode = gameConfig.learningMode;
+    if (mode === 'TYPING') {
+        const easierTier = Math.max(0, gameConfig.playerTier - 1);
+        combat.word = getWordForTier(easierTier);
+        combat.typed = '';
+        combat.wrongFlashAt = -Infinity;
+    } else if (mode === 'MATH') {
+        pickNewMath();
+    } else if (mode === 'COLOR') {
+        pickNewColor();
+    }
+    clearTimeout(combat.zombieTimerId);
+    if (gameState === 'COMBAT') scheduleZombieAttack();
+    combat.log = '🐔 CHICKEN USED! New challenge incoming!';
+    syncChickensHud();
+}
+
+function useRepellent() {
+    if (player.repellents <= 0) return;
+    if (gameState !== 'BATTLEPREP') return;
+    if (battlePrep.zombie && battlePrep.zombie.hasKey) return;
+    player.repellents--;
+    const key = `${battlePrep.zombie.col},${battlePrep.zombie.row}`;
+    repelledCells.add(key);
+    clearTimeout(combat.zombieTimerId);
+    combat.zombie = null;
+    battlePrep.zombie = null;
+    gameState = 'MAZE';
+    combat.log = '';
+    syncRepellentsHud();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  NEW SHOP TAB BUILDERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildWeaponsTab() {
+    const WEAPON_ICONS = ['🪵','🗡️','🔪','⚔️','🗡️','🌙','✨'];
+    const cur = getWeaponTierIndex();
+    const page = shopUi.page;
+    const start = page * 4;
+    const items = [];
+    for (let i = start; i < Math.min(start + 4, WEAPONS.length); i++) {
+        const w = WEAPONS[i];
+        let status, statLine, statColor;
+        if (i < cur) {
+            status = 'owned';
+            statLine = '✅ ' + w.damage + ' DMG  (past)';
+            statColor = '#44ff88';
+        } else if (i === cur) {
+            status = 'owned';
+            statLine = '✅ ' + w.damage + ' DMG  (current)';
+            statColor = '#44ff88';
+        } else if (i === cur + 1) {
+            if (player.playerLevel < w.level) { status = 'locked_level'; }
+            else { status = player.gold >= w.cost ? 'buyable' : 'locked_cost'; }
+            statLine = '⚔️ Damage: +' + (w.damage - player.weapon.damage) + ' ▲';
+            statColor = '#44ff88';
+        } else {
+            status = 'locked_level';
+            statLine = '⚔️ Damage: +' + (w.damage - player.weapon.damage) + ' ▲';
+            statColor = '#44ff88';
+        }
+        items.push({
+            icon: WEAPON_ICONS[i] || '⚔️',
+            name: w.name,
+            statLine, statColor,
+            cost: i <= cur ? 0 : w.cost,
+            status,
+            levelReq: w.level,
+            lockMsg: player.playerLevel < w.level ? `Reach Level ${w.level} to unlock` : 'Buy the weapon before this first',
+            countLine: '',
+            shimmer: status === 'buyable',
+        });
+    }
+    return items;
+}
+
+function buildArmorTab() {
+    const ARMOR_ICONS = ['🧥','🦺','⛓️','🛡️','🔩','✨'];
+    const cur = player.armorTier;
+    const page = shopUi.page;
+    const start = page * 4;
+    const items = [];
+    for (let i = start; i < Math.min(start + 4, ARMORS.length); i++) {
+        const a = ARMORS[i];
+        let status, statLine, statColor;
+        if (i < cur) {
+            status = 'owned';
+            statLine = '✅ ' + a.name + '  (past)';
+            statColor = '#44ff88';
+        } else if (i === cur) {
+            status = 'owned';
+            statLine = '✅ ' + ARMORS[cur].name + '  (current)';
+            statColor = '#44ff88';
+        } else if (i === cur + 1) {
+            if (player.playerLevel < a.level) { status = 'locked_level'; }
+            else { status = player.gold >= a.cost ? 'buyable' : 'locked_cost'; }
+            statLine = '🛡️ Damage taken: -' + (a.defense - ARMORS[cur].defense) + ' ▼';
+            statColor = '#44ff88';
+        } else {
+            status = 'locked_level';
+            statLine = '🛡️ Damage taken: -' + (a.defense - ARMORS[cur].defense) + ' ▼';
+            statColor = '#44ff88';
+        }
+        items.push({
+            icon: ARMOR_ICONS[i] || '🛡️',
+            name: a.name,
+            statLine, statColor,
+            cost: i <= cur ? 0 : a.cost,
+            status,
+            levelReq: a.level,
+            lockMsg: player.playerLevel < a.level ? `Reach Level ${a.level} to unlock` : 'Buy the armor before this first',
+            countLine: '',
+            shimmer: status === 'buyable',
+        });
+    }
+    return items;
+}
+
+function buildItemsTab() {
+    const rf = player.rabbitFeet;
+    const rfCosts = [100, 200, 300, 500, 750];
+    const rfCost = rf < 5 ? rfCosts[rf] : 0;
+    const items = [
+        {
+            icon: '🧪',
+            name: 'Health Potion',
+            statLine: 'Restores 20 HP',
+            statColor: '#44ff88',
+            cost: 20,
+            status: player.potions >= 5 ? 'maxed' : player.gold < 20 ? 'locked_cost' : 'buyable',
+            levelReq: 1,
+            countLine: player.potions + '/5 carried',
+            shimmer: player.potions < 5 && player.gold >= 20,
+        },
+        {
+            icon: '🐔',
+            name: 'Chicken',
+            statLine: 'Chicken out of a hard question!',
+            statColor: '#ffcc44',
+            cost: 100,
+            status: player.chickens >= 3 ? 'maxed' : player.gold < 100 ? 'locked_cost' : 'buyable',
+            levelReq: 1,
+            countLine: player.chickens + '/3 carried',
+            shimmer: player.chickens < 3 && player.gold >= 100,
+        },
+        {
+            icon: '🧴',
+            name: 'Zombie Repellent',
+            statLine: 'Sneak past one zombie.',
+            statColor: '#88ddff',
+            cost: 140,
+            status: player.repellents >= 2 ? 'maxed' : player.gold < 140 ? 'locked_cost' : 'buyable',
+            levelReq: 1,
+            countLine: player.repellents + '/2 carried',
+            shimmer: player.repellents < 2 && player.gold >= 140,
+        },
+        {
+            icon: '🐇',
+            name: "Rabbit's Foot",
+            statLine: 'A little extra luck never hurt anyone. 🍀',
+            statColor: '#ffaa44',
+            cost: rfCost,
+            status: rf >= 5 ? 'maxed' : player.playerLevel < 1 ? 'locked_level' : player.gold < rfCost ? 'locked_cost' : 'buyable',
+            levelReq: 1,
+            countLine: rf + '/5 owned',
+            shimmer: rf < 5 && player.gold >= rfCost,
+        },
+    ];
+    return items;
+}
+
+function buildUpgradesTab() {
+    const TORCH_TIERS = [
+        { name:'Candle 🕯️',  cost:50,  bonus:'+0.5 vision', tier:1 },
+        { name:'Lantern 🔦', cost:200, bonus:'+1.0 vision', tier:2 },
+        { name:'Torch 🔥',   cost:600, bonus:'+1.5 vision', tier:3 },
+    ];
+    const TORCH_ICONS = ['🕯️','🔦','🔥'];
+    const visionDelta = [0.5, 1.0, 1.5];
+    const items = [];
+    for (let idx = 0; idx < TORCH_TIERS.length; idx++) {
+        const torch = TORCH_TIERS[idx];
+        const t = torch.tier;
+        let status;
+        if (player.torchTier >= t) {
+            status = 'owned';
+        } else if (player.torchTier === t - 1) {
+            status = player.gold >= torch.cost ? 'buyable' : 'locked_cost';
+        } else {
+            status = 'locked_level';
+        }
+        items.push({
+            icon: TORCH_ICONS[idx],
+            name: torch.name,
+            statLine: '👁️ Vision: +' + visionDelta[idx] + ' ▲',
+            statColor: '#ffdd88',
+            cost: torch.cost,
+            status,
+            levelReq: 1,
+            lockMsg: 'Buy the light before this first',
+            countLine: '',
+            shimmer: status === 'buyable',
+        });
+    }
+    // Slot 3 is empty (only 3 torch tiers)
+    items.push(null);
+    return items;
+}
+
+function getTabItems() {
+    switch (shopUi.tab) {
+        case 'WEAPONS':  return buildWeaponsTab();
+        case 'ARMOR':    return buildArmorTab();
+        case 'ITEMS':    return buildItemsTab();
+        case 'UPGRADES': return buildUpgradesTab();
+        default:         return buildWeaponsTab();
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  NEW SHOP: buyCurrentItem
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buyCurrentItem() {
+    const items = getTabItems();
+    const idx = shopUi.selectedCard;
+    const item = items[idx];
+    if (!item || item.status !== 'buyable') return;
+    const goldBefore = player.gold;
+
+    switch (shopUi.tab) {
+        case 'WEAPONS': {
+            const wt = getWeaponTierIndex();
+            if (wt >= WEAPONS.length - 1) return;
+            const nw = WEAPONS[wt + 1];
+            if (player.playerLevel < nw.level || player.gold < nw.cost) return;
+            player.gold -= nw.cost;
+            player.weapon.name = nw.name; player.weapon.damage = nw.damage;
+            syncGoldHud(); syncWeaponHud(); break;
+        }
+        case 'ARMOR': {
+            const at = player.armorTier;
+            if (at >= ARMORS.length - 1) return;
+            const na = ARMORS[at + 1];
+            if (player.playerLevel < na.level || player.gold < na.cost) return;
+            player.gold -= na.cost;
+            player.armorTier++; player.armorLevel = ARMORS[player.armorTier].defense;
+            syncGoldHud(); syncArmorHud(); break;
+        }
+        case 'ITEMS': {
+            if (idx === 0) {
+                if (player.potions >= 5 || player.gold < 20) return;
+                player.gold -= 20; player.potions++;
+                syncGoldHud(); syncPotionsHud();
+            } else if (idx === 1) {
+                if (player.chickens >= 3 || player.gold < 100) return;
+                player.gold -= 100; player.chickens++;
+                syncGoldHud(); syncChickensHud();
+            } else if (idx === 2) {
+                if (player.repellents >= 2 || player.gold < 140) return;
+                player.gold -= 140; player.repellents++;
+                syncGoldHud(); syncRepellentsHud();
+            } else if (idx === 3) {
+                const rf = player.rabbitFeet;
+                const rfCosts = [100, 200, 300, 500, 750];
+                if (rf >= 5) return;
+                const cost = rfCosts[rf];
+                if (player.gold < cost) return;
+                player.gold -= cost; player.rabbitFeet++;
+                syncGoldHud(); syncRabbitFeetHud();
+            }
+            break;
+        }
+        case 'UPGRADES': {
+            const t = idx + 1;
+            if (player.torchTier !== t - 1) return;
+            const cost = [50, 200, 600][idx];
+            if (cost === undefined || player.gold < cost) return;
+            player.gold -= cost;
+            player.torchTier = t;
+            syncGoldHud(); syncTorchHud(); break;
+        }
+    }
+
+    if (player.gold !== goldBefore) {
+        shopUi.goldFlashFrom = goldBefore;
+        shopUi.goldFlashAt = performance.now();
+    }
+    saveGame();
+}
+
+function beginNextLevel() {
+    shopUi.snapshot = null;
+    shopUi.oopsConfirm = false;
+    run.level=nextLevel.level; run.zombieHp=nextLevel.zombieHp;
+    run.zombieDmg=nextLevel.zombieDmg; run.extraGuards=nextLevel.extraGuards;
+    GS=nextLevel.gridSize; CS=nextLevel.cellSize;
+    canvas.width=GS*CS+PAD*2; canvas.height=GS*CS+PAD*2;
+    resizeUiToCanvas();
+    currentMaze=new Maze(GS);
+    player.col=0; player.row=0;
+    initLevel();
+    clearTimeout(popup._timer); sparkles=[];
+    combat.zombie=null; combat.playerFlashAt=-Infinity; combat.zombieFlashAt=-Infinity;
+    levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
+    mazeStartTime=performance.now();
+    gameState='MAZE';
+    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
+    syncWeaponHud(); syncArmorHud();
+    playDrone();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  HUD SYNC
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function syncHpHud() {
+    const ratio = player.hp / player.maxHp;
+    const fill = document.getElementById('hp-bar-fill');
+    const color = ratio > 0.5 ? '#00bb33' : ratio > 0.25 ? '#bbaa00' : '#cc2200';
+    fill.style.width = Math.max(0, ratio * 100) + '%';
+    fill.style.background = color;
+    document.getElementById('hud-hp').textContent = player.hp;
+    document.getElementById('hud-maxhp').textContent = player.maxHp;
+}
+function syncGoldHud()       { document.getElementById('hud-gold').textContent=player.gold; }
+function syncLevelHud()      { document.getElementById('hud-level').textContent=String(run.level).padStart(2,'0'); }
+function syncXpHud()         {
+    document.getElementById('hud-xp').textContent=player.xp;
+    document.getElementById('hud-xp-next').textContent=xpToNextLevel(player.playerLevel);
+}
+function syncPotionsHud()    { document.getElementById('hud-potions').textContent=player.potions; }
+function syncPlayerLevelHud(){ document.getElementById('hud-plevel').textContent=player.playerLevel; }
+function syncTimerHud(sec)   {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    document.getElementById('hud-timer').textContent = `${m}:${String(s).padStart(2,'0')}`;
+}
+function syncWeaponHud()     { document.getElementById('hud-weapon').textContent=player.weapon.name; }
+function syncArmorHud()      { document.getElementById('hud-armor').textContent=ARMORS[player.armorTier].name; }
+function syncZombiesHud()    {
+    const el = document.getElementById('hud-zombies');
+    if (el) el.textContent = zombies ? zombies.size + ' left' : '?';
+}
+function syncKeyHud()        {
+    const el = document.getElementById('hud-key');
+    const cell = document.getElementById('hud-key-cell');
+    if (!el || !cell) return;
+    el.textContent = player.hasKey ? 'FOUND - head to the exit!' : 'NOT FOUND - a zombie has it!';
+    cell.classList.toggle('found', player.hasKey);
+}
+function syncChickensHud()   { /* no dedicated HUD element yet */ }
+function syncRepellentsHud() { /* no dedicated HUD element yet */ }
+function syncRabbitFeetHud() { /* no dedicated HUD element yet */ }
+function syncTorchHud()      { /* no dedicated HUD element yet */ }
+function resizeUiToCanvas()  {
+    const w = (canvas.width + 2) + 'px';
+    const hpBar = document.getElementById('hp-bar-outer');
+    if (hpBar) hpBar.style.width = w;
+    const sg = document.getElementById('stats-grid');
+    if (sg) sg.style.width = w;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  3-SLOT SAVE SYSTEM
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const SAVES_KEY = 'deadEnds_saves';
+
+function loadAllSlots() {
+    try {
+        const raw = localStorage.getItem(SAVES_KEY);
+        if (!raw) return [null,null,null];
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [null,null,null];
+        while (arr.length < 3) arr.push(null);
+        return arr.slice(0,3);
+    } catch(e) { return [null,null,null]; }
+}
+
+function saveAllSlots(arr) {
+    try { localStorage.setItem(SAVES_KEY, JSON.stringify(arr)); } catch(e) {}
+}
+
+function getCurrentSaveLevel() {
+    if (gameState==='LEVELCOMPLETE'||gameState==='SHOP') return nextLevel.level;
+    return run.level;
+}
+
+function saveGame() {
+    try {
+        const arr = loadAllSlots();
+        const existing = arr[gameConfig.currentSlot] || {};
+        arr[gameConfig.currentSlot] = {
+            name:          existing.name     || 'Adventurer',
+            createdAt:     existing.createdAt || Date.now(),
+            lastPlayed:    Date.now(),
+            playerTier:    gameConfig.playerTier,
+            learningMode:  gameConfig.learningMode,
+            character:     gameConfig.character,
+            playerLevel:   player.playerLevel,
+            currentXP:     player.xp,
+            gold:          player.gold,
+            maxHp:         player.maxHp,
+            weaponName:    player.weapon.name,
+            weaponDamage:  player.weapon.damage,
+            armorTier:     player.armorTier,
+            armorLevel:    player.armorLevel,
+            potionCount:   player.potions,
+            mazeLevel:     getCurrentSaveLevel(),
+            totalZombiesKilled: player.totalZombiesKilled,
+            chickens:      player.chickens,
+            repellents:    player.repellents,
+            rabbitFeet:    player.rabbitFeet,
+            torchTier:     player.torchTier,
+        };
+        saveAllSlots(arr);
+        saveFlash.shownAt = performance.now();
+    } catch(e) {}
+}
+
+
+function applySaveData(data) {
+    player.playerLevel        = data.playerLevel   || 1;
+    player.xp                 = data.currentXP     || 0;
+    player.gold               = data.gold          || 0;
+    player.maxHp              = data.maxHp         || CC.playerMaxHp;
+    player.hp                 = player.maxHp;
+    player.weapon.name        = data.weaponName    || CC.startWeapon.name;
+    player.weapon.damage      = data.weaponDamage  || CC.startWeapon.damage;
+    player.armorTier          = data.armorTier     || 0;
+    player.armorLevel         = data.armorLevel    || 0;
+    player.potions            = data.potionCount   || 0;
+    player.totalZombiesKilled = data.totalZombiesKilled || 0;
+    player.chickens           = data.chickens      || 0;
+    player.repellents         = data.repellents    || 0;
+    player.rabbitFeet         = data.rabbitFeet    || 0;
+    player.torchTier          = data.torchTier     || 0;
+    const lvl = data.mazeLevel || 1;
+    const p   = computeLevelParams(lvl);
+    run.level=lvl; run.zombieHp=p.zombieHp; run.zombieDmg=p.zombieDmg; run.extraGuards=p.extraGuards;
+    GS=p.gridSize; CS=p.cellSize;
+    gameConfig.playerTier   = data.playerTier   || 0;
+    gameConfig.learningMode = data.learningMode || 'TYPING';
+    gameConfig.character    = data.character    || CHARACTERS[0].id;
+}
+
+function launchGame(slotIdx) {
+    const arr = loadAllSlots();
+    const data = arr[slotIdx];
+    if (!data) return;
+    if (combat.zombieTimerId) { clearTimeout(combat.zombieTimerId); combat.zombieTimerId=null; }
+    gameConfig.currentSlot = slotIdx;
+    applySaveData(data);
+    getAudio();
+    canvas.width=GS*CS+PAD*2; canvas.height=GS*CS+PAD*2;
+    resizeUiToCanvas();
+    currentMaze=new Maze(GS);
+    player.col=0; player.row=0;
+    initLevel();
+    clearTimeout(popup._timer); sparkles=[];
+    combat.zombie=null; combat.playerFlashAt=-Infinity; combat.zombieFlashAt=-Infinity;
+    levelUpNotif.shownAt=-Infinity;
+    levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
+    mazeStartTime=performance.now();
+    gameState='MAZE';
+    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
+    syncWeaponHud(); syncArmorHud();
+    playDrone();
+}
+
+function launchGameWithMode(slotIdx, modeId) {
+    const arr = loadAllSlots();
+    const data = arr[slotIdx];
+    if (!data) return;
+    data.learningMode = modeId;
+    data.character = gameConfig.character;
+    arr[slotIdx] = data;
+    saveAllSlots(arr);
+    launchGame(slotIdx);
+}
+
+function startNewSlot(slotIdx, name, tierIdx, modeId) {
+    if (combat.zombieTimerId) { clearTimeout(combat.zombieTimerId); combat.zombieTimerId=null; }
+    gameConfig.currentSlot  = slotIdx;
+    gameConfig.playerTier   = tierIdx;
+    gameConfig.learningMode = modeId;
+    const p1=computeLevelParams(1);
+    run.level=1; run.zombieHp=p1.zombieHp; run.zombieDmg=p1.zombieDmg; run.extraGuards=p1.extraGuards;
+    GS=GAME_CONFIG.gridSize; CS=GAME_CONFIG.cellSize;
+    player.col=0; player.row=0; player.hp=CC.playerMaxHp; player.maxHp=CC.playerMaxHp;
+    player.gold=0; player.xp=0; player.playerLevel=1; player.potions=0;
+    player.weapon={...CC.startWeapon}; player.armorTier=0; player.armorLevel=0;
+    player.totalZombiesKilled=0;
+    player.chickens=0; player.repellents=0; player.rabbitFeet=0; player.torchTier=0;
+    const arr = loadAllSlots();
+    arr[slotIdx] = {
+        name, createdAt:Date.now(), lastPlayed:Date.now(),
+        playerTier:tierIdx, learningMode:modeId, character:gameConfig.character,
+        playerLevel:1, currentXP:0, gold:0, maxHp:CC.playerMaxHp,
+        weaponName:CC.startWeapon.name, weaponDamage:CC.startWeapon.damage,
+        armorTier:0, armorLevel:0, potionCount:0, mazeLevel:1, totalZombiesKilled:0,
+        chickens:0, repellents:0, rabbitFeet:0, torchTier:0,
+    };
+    saveAllSlots(arr);
+    getAudio();
+    canvas.width=GS*CS+PAD*2; canvas.height=GS*CS+PAD*2;
+    resizeUiToCanvas();
+    currentMaze=new Maze(GS);
+    player.col=0; player.row=0;
+    initLevel();
+    clearTimeout(popup._timer); sparkles=[];
+    combat.zombie=null; combat.playerFlashAt=-Infinity; combat.zombieFlashAt=-Infinity;
+    levelUpNotif.shownAt=-Infinity;
+    levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
+    mazeStartTime=performance.now();
+    gameState='MAZE';
+    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
+    syncWeaponHud(); syncArmorHud();
+    playDrone();
+}
+
+function restart() {
+    if (combat.zombieTimerId) { clearTimeout(combat.zombieTimerId); combat.zombieTimerId=null; }
+    const p1=computeLevelParams(1);
+    run.level=1; run.zombieHp=p1.zombieHp; run.zombieDmg=p1.zombieDmg; run.extraGuards=p1.extraGuards;
+    GS=GAME_CONFIG.gridSize; CS=GAME_CONFIG.cellSize;
+    canvas.width=GS*CS+PAD*2; canvas.height=GS*CS+PAD*2;
+    resizeUiToCanvas();
+    player.col=0; player.row=0; player.hp=CC.playerMaxHp; player.maxHp=CC.playerMaxHp;
+    player.gold=0; player.xp=0; player.playerLevel=1; player.potions=0;
+    player.weapon={...CC.startWeapon}; player.armorTier=0; player.armorLevel=0;
+    player.totalZombiesKilled=0;
+    player.chickens=0; player.repellents=0; player.rabbitFeet=0; player.torchTier=0;
+    combat.zombie=null; combat.playerFlashAt=-Infinity; combat.zombieFlashAt=-Infinity;
+    combat.zombieNextAt=0; combat.log=''; combat.word=''; combat.typed='';
+    combat.wrongFlashAt=-Infinity; combat.mathTyped=''; combat.colorButtons=[];
+    clearTimeout(popup._timer); sparkles=[];
+    levelUpNotif.shownAt=-Infinity;
+    levelCompleteData.xpGained=0; levelCompleteData.levelsGained=0; levelCompleteData.allZombiesKilled=false;
+    currentMaze=new Maze(GS);
+    player.col=0; player.row=0;
+    initLevel();
+    mazeStartTime=performance.now();
+    gameState='MAZE';
+    syncLevelHud(); syncHpHud(); syncGoldHud(); syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
+    syncWeaponHud(); syncArmorHud();
+    playDrone();
+    saveGame();
+}
+
+function checkLevelUp() {
+    const prevLevel = player.playerLevel;
+    let needed = xpToNextLevel(player.playerLevel);
+    while (player.xp >= needed) {
+        player.xp -= needed;
+        player.playerLevel++;
+        levelUpNotif.shownAt = performance.now();
+        needed = xpToNextLevel(player.playerLevel);
+    }
+    if (player.playerLevel > prevLevel) {
+        levelCompleteData.levelsGained += player.playerLevel - prevLevel;
+    }
+    syncXpHud(); syncPlayerLevelHud();
+}
+
+function usePotion() {
+    if (player.potions <= 0) return;
+    if (player.hp >= player.maxHp) { showPopup('AT FULL HEALTH', 'SAVE YOUR POTION', C.popupPotion); return; }
+    const healed = Math.min(20, player.maxHp - player.hp);
+    player.hp += healed; player.potions--;
+    syncHpHud(); syncPotionsHud();
+    showPopup(`+${healed} HP`, 'POTION CONSUMED', C.popupPotion);
+}
+
+function drawExterminatorNotif(now) {
+    const elapsed = now - exterminatorNotif.shownAt;
+    if (elapsed >= exterminatorNotif.duration) return;
+    const fadeStart = exterminatorNotif.duration - 500;
+    const alpha = elapsed > fadeStart ? (1 - (elapsed - fadeStart) / 500) : 1;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = '28px VT323, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ff8800'; ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 18;
+    ctx.fillText('🧟 EXTERMINATOR! All zombies slain!', canvas.width / 2, canvas.height / 2 - 60);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+function drawLevelUpNotif(now) {
+    const elapsed = now - levelUpNotif.shownAt;
+    if (elapsed >= levelUpNotif.duration) return;
+    const fadeStart = levelUpNotif.duration - 400;
+    const alpha = elapsed > fadeStart ? (1-(elapsed-fadeStart)/400) : 1;
+    const pulse = 0.85 + 0.15*Math.sin(now*0.015);
+    ctx.save();
+    ctx.globalAlpha = alpha * pulse;
+    ctx.font = '36px VT323, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffdd00'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 22;
+    ctx.fillText(`LEVEL UP!  PLAYER LEVEL ${player.playerLevel}`, canvas.width/2, canvas.height/2-16);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  INPUT HANDLERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const KEY_MOVES = {
+    w:          { wall:'N', dc:0,  dr:-1, facing:'north' },
+    ArrowUp:    { wall:'N', dc:0,  dr:-1, facing:'north' },
+    a:          { wall:'W', dc:-1, dr:0,  facing:'west'  },
+    ArrowLeft:  { wall:'W', dc:-1, dr:0,  facing:'west'  },
+    s:          { wall:'S', dc:0,  dr:1,  facing:'south' },
+    ArrowDown:  { wall:'S', dc:0,  dr:1,  facing:'south' },
+    d:          { wall:'E', dc:1,  dr:0,  facing:'east'  },
+    ArrowRight: { wall:'E', dc:1,  dr:0,  facing:'east'  },
+};
+
+window.addEventListener('keydown', e => {
+
+    // ── SLOT SELECT ──────────────────────────────────────────────
+    if (gameState === 'SLOTSELECT') {
+        if (slotSelectUi.deleteConfirmSlot >= 0) {
+            if (e.key==='Escape') { slotSelectUi.deleteConfirmSlot=-1; }
+            return;
+        }
+        if (e.key==='ArrowLeft'||e.key==='a'||e.key==='A') {
+            setupFlow.selectedSlot = (setupFlow.selectedSlot+2) % 3;
+        } else if (e.key==='ArrowRight'||e.key==='d'||e.key==='D') {
+            setupFlow.selectedSlot = (setupFlow.selectedSlot+1) % 3;
+        } else if (e.key>='1'&&e.key<='3') {
+            setupFlow.selectedSlot = parseInt(e.key,10)-1;
+        } else if (e.key==='Enter'||e.key===' ') {
+            openSlot(setupFlow.selectedSlot);
+        }
+        return;
+    }
+
+    // ── CHARACTER SELECT ─────────────────────────────────────────
+    if (gameState === 'CHARSELECT') {
+        const N=CHARACTERS.length;
+        if (e.key==='Escape') { gameState='SLOTSELECT'; setupFlow.slotAnimStart=performance.now(); return; }
+        if (e.key==='ArrowLeft'||e.key==='a') setupFlow.charSelectedIdx=(setupFlow.charSelectedIdx+N-1)%N;
+        else if (e.key==='ArrowRight'||e.key==='d') setupFlow.charSelectedIdx=(setupFlow.charSelectedIdx+1)%N;
+        else if (e.key>='1'&&e.key<=String(N)) setupFlow.charSelectedIdx=parseInt(e.key,10)-1;
+        else if (e.key==='Enter'||e.key===' ') confirmCharSelect();
+        return;
+    }
+
+    // ── TIER SELECT ──────────────────────────────────────────────
+    if (gameState === 'TIERSELECT') {
+        if (e.key==='Escape') { gameState='CHARSELECT'; setupFlow.slotAnimStart=performance.now(); return; }
+        if (e.key==='ArrowLeft') setupFlow.tierSelectedIdx=(setupFlow.tierSelectedIdx+3)%4;
+        else if (e.key==='ArrowRight') setupFlow.tierSelectedIdx=(setupFlow.tierSelectedIdx+1)%4;
+        else if (e.key>='1'&&e.key<='4') setupFlow.tierSelectedIdx=parseInt(e.key,10)-1;
+        else if (e.key==='Enter') {
+            setupFlow.slotAnimStart=performance.now();
+            gameState='MODESELECT';
+        }
+        return;
+    }
+
+    // ── MODE SELECT ──────────────────────────────────────────────
+    if (gameState === 'MODESELECT') {
+        const N=LEARNING_MODES.length;
+        if (e.key==='Escape') {
+            if (setupFlow.isExistingSlot) { gameState='CHARSELECT'; setupFlow.slotAnimStart=performance.now(); }
+            else { gameState='TIERSELECT'; setupFlow.slotAnimStart=performance.now(); }
+            return;
+        }
+        if (e.key==='ArrowLeft') setupFlow.modeSelectedIdx=(setupFlow.modeSelectedIdx+N-1)%N;
+        else if (e.key==='ArrowRight') setupFlow.modeSelectedIdx=(setupFlow.modeSelectedIdx+1)%N;
+        else if (e.key>='1'&&e.key<=String(N)) setupFlow.modeSelectedIdx=parseInt(e.key,10)-1;
+        else if (e.key==='Enter') {
+            const modeId=LEARNING_MODES[setupFlow.modeSelectedIdx].id;
+            if (setupFlow.isExistingSlot) {
+                getAudio(); launchGameWithMode(setupFlow.targetSlot, modeId);
+            } else {
+                setupFlow.name='';
+                gameState='NAMING';
+            }
+        }
+        return;
+    }
+
+    // ── NAMING ───────────────────────────────────────────────────
+    if (gameState === 'NAMING') {
+        if (e.key==='Escape') { gameState='MODESELECT'; return; }
+        if (e.key==='Enter') {
+            if (setupFlow.name.trim().length === 0) setupFlow.name='Adventurer';
+            startNewSlot(setupFlow.targetSlot, setupFlow.name.trim(),
+                setupFlow.tierSelectedIdx, LEARNING_MODES[setupFlow.modeSelectedIdx].id);
+            return;
+        }
+        if (e.key==='Backspace') { setupFlow.name=setupFlow.name.slice(0,-1); return; }
+        if (e.key.length===1 && /[a-zA-Z0-9 ]/.test(e.key) && setupFlow.name.length<20) {
+            setupFlow.name += e.key;
+        }
+        return;
+    }
+
+    // ── PAUSED ───────────────────────────────────────────────────
+    if (gameState === 'PAUSED') {
+        if (e.key==='r'||e.key==='R'||e.key==='Escape') {
+            if (mazeStartTime) mazeStartTime += (performance.now() - pauseStartTime);
+            gameState='MAZE';
+        } else if (e.key==='q'||e.key==='Q') {
+            saveGame();
+            gameState='SLOTSELECT';
+            setupFlow.slotAnimStart=performance.now();
+        }
+        return;
+    }
+
+    // ── GAME OVER ────────────────────────────────────────────────
+    if (gameState === 'GAMEOVER') {
+        if (e.key==='r'||e.key==='R') { restart(); return; }
+        if (e.key==='m'||e.key==='M'||e.key==='Escape') {
+            gameState='SLOTSELECT';
+            setupFlow.slotAnimStart=performance.now();
+        }
+        return;
+    }
+
+    if (gameState === 'LEVELCOMPLETE') {
+        if (e.key==='Enter'||e.key===' ') enterShop();
+        return;
+    }
+    if (gameState === 'SHOP') {
+        if (shopUi.oopsConfirm) {
+            if (e.key==='y'||e.key==='Y') { applyOopsReset(); return; }
+            if (e.key==='n'||e.key==='N'||e.key==='Escape') { shopUi.oopsConfirm=false; return; }
+            return;
+        }
+        const TABS_ORDER = ['WEAPONS','ARMOR','ITEMS','UPGRADES'];
+        if (e.key==='ArrowLeft') {
+            const ti = TABS_ORDER.indexOf(shopUi.tab);
+            shopUi.tab = TABS_ORDER[(ti + 3) % 4];
+            shopUi.page = 0; shopUi.selectedCard = 0; return;
+        }
+        if (e.key==='ArrowRight') {
+            const ti = TABS_ORDER.indexOf(shopUi.tab);
+            shopUi.tab = TABS_ORDER[(ti + 1) % 4];
+            shopUi.page = 0; shopUi.selectedCard = 0; return;
+        }
+        if (e.key==='ArrowUp') {
+            shopUi.selectedCard = (shopUi.selectedCard + 3) % 4; return;
+        }
+        if (e.key==='ArrowDown') {
+            shopUi.selectedCard = (shopUi.selectedCard + 1) % 4; return;
+        }
+        if (e.key>='1'&&e.key<='4') {
+            shopUi.selectedCard = parseInt(e.key,10)-1;
+            buyCurrentItem(); return;
+        }
+        if (e.key==='Enter') { buyCurrentItem(); return; }
+        if (e.key===' ') { beginNextLevel(); return; }
+        if (e.key==='PageUp'||e.key===',') {
+            if (shopUi.page > 0) { shopUi.page--; shopUi.selectedCard=0; } return;
+        }
+        if (e.key==='PageDown'||e.key==='.') {
+            const total = shopUi.tab==='WEAPONS' ? WEAPONS.length : shopUi.tab==='ARMOR' ? ARMORS.length : 4;
+            const maxPage = Math.ceil(total/4)-1;
+            if (shopUi.page < maxPage) { shopUi.page++; shopUi.selectedCard=0; } return;
+        }
+        return;
+    }
+
+    if (gameState === 'BATTLEPREP') return;
+
+    if (gameState === 'COMBAT') {
+        const mode = gameConfig.learningMode;
+        if (mode==='TYPING')  handleTypingInput(e);
+        else if (mode==='MATH') handleMathInput(e);
+        return;
+    }
+
+    if (gameState !== 'MAZE') return;
+
+    if (e.key==='Escape') {
+        e.preventDefault();
+        pauseStartTime = performance.now();
+        gameState = 'PAUSED';
+        return;
+    }
+    if (e.key==='f'||e.key==='F') { e.preventDefault(); usePotion(); return; }
+
+    const move=KEY_MOVES[e.key];
+    if (!move) return;
+    e.preventDefault();
+    player.facing = move.facing;
+
+    const cell=currentMaze.cell(player.col, player.row);
+    if (!cell || cell.walls[move.wall]) return;
+
+    const vp=getPlayerVisualPos(performance.now());
+    playerAnim.fromCol=vp.col; playerAnim.fromRow=vp.row;
+    player.col+=move.dc; player.row+=move.dr;
+    playerAnim.toCol=player.col; playerAnim.toRow=player.row;
+    playerAnim.startTime=performance.now();
+
+    updateFogVisited();
+
+    const newKey=`${player.col},${player.row}`;
+    const zombie=zombies.get(newKey);
+    const chest =chests.get(newKey);
+
+    if (zombie && !repelledCells.has(newKey)) {
+        enterCombat(zombie);
+    } else if (chest) {
+        openChest(newKey, player.col, player.row);
+    } else if (player.col===currentMaze.exitCol && player.row===currentMaze.exitRow) {
+        if (player.hasKey) triggerLevelComplete();
+        else { showPopup('🔒 THE DOOR IS LOCKED', 'ONE OF THE ZOMBIES HAS THE KEY - DEFEAT THEM TO FIND IT', '#ff6666'); playWrong(); }
+    }
+});
+
+canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+    if (gameState==='COMBAT') {
+        // Chicken button
+        if (combat.chickenRect) {
+            const r = combat.chickenRect;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { useChicken(); return; }
+        }
+        if (gameConfig.learningMode==='COLOR') { handleCombatClick(mx, my); return; }
+        return;
+    }
+    if (gameState==='BATTLEPREP') {
+        if (battlePrep.repellentRect) {
+            const r = battlePrep.repellentRect;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { useRepellent(); return; }
+        }
+        return;
+    }
+    if (gameState==='SLOTSELECT') {
+        // Delete confirm overlay takes priority
+        if (slotSelectUi.deleteConfirmSlot >= 0) {
+            if (slotSelectUi.deleteYesRect) {
+                const r=slotSelectUi.deleteYesRect;
+                if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                    const arr=loadAllSlots(); arr[slotSelectUi.deleteConfirmSlot]=null; saveAllSlots(arr);
+                    slotSelectUi.deleteConfirmSlot=-1; return;
+                }
+            }
+            if (slotSelectUi.deleteCancelRect) {
+                const r=slotSelectUi.deleteCancelRect;
+                if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                    slotSelectUi.deleteConfirmSlot=-1; return;
+                }
+            }
+            slotSelectUi.deleteConfirmSlot=-1; return;
+        }
+        // Trash buttons first (higher priority than card body)
+        for(let i=0;i<3;i++){
+            const tr=slotSelectUi.trashRects[i];
+            if(tr&&mx>=tr.x&&mx<=tr.x+tr.w&&my>=tr.y&&my<=tr.y+tr.h){
+                slotSelectUi.deleteConfirmSlot=i; return;
+            }
+        }
+        // Card body — single click to load/create
+        for(let i=0;i<3;i++){
+            const cr=slotSelectUi.cardRects[i];
+            if(cr&&mx>=cr.x&&mx<=cr.x+cr.w&&my>=cr.y&&my<=cr.y+cr.h){
+                openSlot(i);
+                return;
+            }
+        }
+        return;
+    }
+    if (gameState==='CHARSELECT') {
+        for(let i=0;i<setupFlow.charCardRects.length;i++){
+            const r=setupFlow.charCardRects[i];
+            if(r&&mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h){
+                setupFlow.charSelectedIdx=i;
+                confirmCharSelect();
+                return;
+            }
+        }
+        return;
+    }
+    if (gameState==='TIERSELECT') {
+        for(let i=0;i<setupFlow.tierCardRects.length;i++){
+            const r=setupFlow.tierCardRects[i];
+            if(r&&mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h){
+                setupFlow.tierSelectedIdx=i;
+                setupFlow.slotAnimStart=performance.now();
+                gameState='MODESELECT';
+                return;
+            }
+        }
+        return;
+    }
+    if (gameState==='MODESELECT') {
+        for(let i=0;i<setupFlow.modeCardRects.length;i++){
+            const r=setupFlow.modeCardRects[i];
+            if(r&&mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h){
+                setupFlow.modeSelectedIdx=i; return;
+            }
+        }
+        if(setupFlow.modeStartRect){
+            const r=setupFlow.modeStartRect;
+            if(mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h){
+                const modeId=LEARNING_MODES[setupFlow.modeSelectedIdx].id;
+                if(setupFlow.isExistingSlot){ getAudio(); launchGameWithMode(setupFlow.targetSlot,modeId); }
+                else { setupFlow.name=''; gameState='NAMING'; }
+                return;
+            }
+        }
+        return;
+    }
+    if (gameState==='PAUSED') {
+        if (uiRects.pauseResume) {
+            const r=uiRects.pauseResume;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                if (mazeStartTime) mazeStartTime += (performance.now() - pauseStartTime);
+                gameState='MAZE'; return;
+            }
+        }
+        if (uiRects.pauseQuit) {
+            const r=uiRects.pauseQuit;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                saveGame(); gameState='SLOTSELECT'; setupFlow.slotAnimStart=performance.now(); return;
+            }
+        }
+        return;
+    }
+    if (gameState==='GAMEOVER') {
+        if (uiRects.gameOverRetry) {
+            const r=uiRects.gameOverRetry;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { restart(); return; }
+        }
+        if (uiRects.gameOverMenu) {
+            const r=uiRects.gameOverMenu;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                gameState='SLOTSELECT'; setupFlow.slotAnimStart=performance.now(); return;
+            }
+        }
+        return;
+    }
+    if (gameState==='LEVELCOMPLETE') {
+        if (uiRects.levelCompleteShop) {
+            const r=uiRects.levelCompleteShop;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { enterShop(); return; }
+        }
+        return;
+    }
+    if (gameState==='SHOP') {
+        if (shopUi.oopsConfirm) {
+            if (shopUi.confirmYesRect) {
+                const r=shopUi.confirmYesRect;
+                if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { applyOopsReset(); return; }
+            }
+            if (shopUi.confirmNoRect) {
+                const r=shopUi.confirmNoRect;
+                if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { shopUi.oopsConfirm=false; return; }
+            }
+            shopUi.oopsConfirm=false; return;
+        }
+        // Tab clicks
+        for (const tr of shopUi.tabRects) {
+            if (mx>=tr.x&&mx<=tr.x+tr.w&&my>=tr.y&&my<=tr.y+tr.h) {
+                shopUi.tab=tr.id; shopUi.page=0; shopUi.selectedCard=0; return;
+            }
+        }
+        // Pagination
+        if (shopUi.prevPageRect) {
+            const r=shopUi.prevPageRect;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                if (shopUi.page>0) { shopUi.page--; shopUi.selectedCard=0; } return;
+            }
+        }
+        if (shopUi.nextPageRect) {
+            const r=shopUi.nextPageRect;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                const total = shopUi.tab==='WEAPONS' ? WEAPONS.length : shopUi.tab==='ARMOR' ? ARMORS.length : 4;
+                const maxPage = Math.ceil(total/4)-1;
+                if (shopUi.page<maxPage) { shopUi.page++; shopUi.selectedCard=0; } return;
+            }
+        }
+        // Card clicks
+        for (const r of shopUi.cardRects) {
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                shopUi.selectedCard=r.idx; buyCurrentItem(); return;
+            }
+        }
+        if (shopUi.oopsRect) {
+            const r=shopUi.oopsRect;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) {
+                if (hasMadePurchase()) shopUi.oopsConfirm=true;
+                return;
+            }
+        }
+        if (shopUi.nextLevelRect) {
+            const r=shopUi.nextLevelRect;
+            if (mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h) { beginNextLevel(); return; }
+        }
+        return;
+    }
+});
+
+canvas.addEventListener('mousemove', e => {
+    const rect=canvas.getBoundingClientRect();
+    shopUi.hoverX=(e.clientX-rect.left)*(canvas.width/rect.width);
+    shopUi.hoverY=(e.clientY-rect.top)*(canvas.height/rect.height);
+});
+
+document.getElementById('loot-popup').addEventListener('click', () => {
+    clearTimeout(popup._timer);
+    document.getElementById('loot-popup').classList.remove('visible');
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  GAME LOOP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _lastTimerSec = -1;
+function gameLoop(now) {
+    if (mazeStartTime && gameState==='MAZE') {
+        const sec = Math.floor((now - mazeStartTime) / 1000);
+        if (sec !== _lastTimerSec) { _lastTimerSec = sec; syncTimerHud(sec); }
+    }
+
+    if (gameState==='BATTLEPREP') {
+        const elapsed = now - battlePrep.startedAt;
+        renderMaze(currentMaze, player, zombies, chests, now);
+        renderBattlePrep(now);
+        if (elapsed >= 3500) startCombatAfterPrep();
+    }
+    else if (gameState==='SLOTSELECT')     renderSlotSelect(now);
+    else if (gameState==='CHARSELECT')     renderCharSelect(now);
+    else if (gameState==='TIERSELECT')     renderTierSelect(now);
+    else if (gameState==='MODESELECT')     renderModeSelect(now);
+    else if (gameState==='NAMING')         renderNaming(now);
+    else if (gameState==='MAZE')           renderMaze(currentMaze,player,zombies,chests,now);
+    else if (gameState==='COMBAT')       { renderMaze(currentMaze,player,zombies,chests,now); renderCombat(player,combat,now); }
+    else if (gameState==='LEVELCOMPLETE'){ renderMaze(currentMaze,player,zombies,chests,now); renderLevelComplete(now); }
+    else if (gameState==='SHOP')           renderShop(now);
+    else if (gameState==='GAMEOVER')       renderGameOver(now);
+    else if (gameState==='PAUSED')       { renderMaze(currentMaze,player,zombies,chests,now); renderPaused(now); }
+
+    if (gameState==='MAZE'||gameState==='COMBAT'||gameState==='PAUSED'||gameState==='LEVELCOMPLETE') {
+        drawSaveFlash(now);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+document.fonts.ready.then(() => {
+    setupFlow.slotAnimStart = performance.now();
+    resizeUiToCanvas();
+    syncLevelHud(); syncHpHud(); syncGoldHud();
+    syncXpHud(); syncPotionsHud(); syncPlayerLevelHud();
+    syncWeaponHud(); syncArmorHud(); syncZombiesHud();
+    requestAnimationFrame(gameLoop);
+});
+</script>
+</body>
+</html>
