@@ -12,13 +12,20 @@
             background: #020502;
             color: #00ff41;
             font-family: 'VT323', monospace;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Whole game is scaled as one unit to fit the browser window (see fitToWindow) */
+        #game-wrap {
+            position: absolute;
+            left: 50%; top: 50%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-            user-select: none;
+            transform: translate(-50%, -50%);
+            transform-origin: center center;
         }
 
         #game-title {
@@ -137,6 +144,7 @@
     </style>
 </head>
 <body>
+<div id="game-wrap">
     <div id="game-title">DEAD ENDS</div>
     <div id="hp-bar-outer">
         <div id="hp-bar-fill"></div>
@@ -161,6 +169,7 @@
         <span id="loot-title"></span>
         <span id="loot-sub"></span>
     </div>
+</div>
 
 <script>
 'use strict';
@@ -3220,6 +3229,27 @@ function resizeUiToCanvas()  {
     if (hpBar) hpBar.style.width = w;
     const sg = document.getElementById('stats-grid');
     if (sg) sg.style.width = w;
+    fitToWindow();
+}
+
+// Scales the whole game (title, HP bar, canvas, stats) to fill the browser window.
+// Clicks still land correctly because the click handlers use getBoundingClientRect.
+const FIT_MARGIN = 12;   // px of breathing room around the game
+const FIT_MAX_SCALE = 2; // don't blow it up past 2x on huge monitors
+function fitToWindow() {
+    const wrap = document.getElementById('game-wrap');
+    if (!wrap) return;
+    // offsetWidth/Height ignore transforms, so this is the game's natural size
+    const w = wrap.offsetWidth, h = wrap.offsetHeight;
+    if (!w || !h) return;
+    const scale = Math.min(
+        (window.innerWidth  - FIT_MARGIN * 2) / w,
+        (window.innerHeight - FIT_MARGIN * 2) / h,
+        FIT_MAX_SCALE
+    );
+    wrap.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    // Crisp pixels when enlarging; smooth when shrinking so thin maze walls don't vanish
+    canvas.style.imageRendering = scale > 1 ? 'pixelated' : 'auto';
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3909,6 +3939,8 @@ function gameLoop(now) {
 
     requestAnimationFrame(gameLoop);
 }
+
+window.addEventListener('resize', fitToWindow);
 
 document.fonts.ready.then(() => {
     setupFlow.slotAnimStart = performance.now();
